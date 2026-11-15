@@ -51,13 +51,26 @@ export default function BeatSequencer({
     );
 
   const duplicateTrack = (id: string) =>
-    setTracks((prev) => {
-      const index = prev.findIndex((track) => track.id === id);
-      if (index < 0) return prev;
-      const source = prev[index];
-      const copy: DrumTrack = { ...source, id: crypto.randomUUID(), name: `${source.name} 2`, steps: [...source.steps] };
-      return [...prev.slice(0, index + 1), copy, ...prev.slice(index + 1)];
-    });
+  setTracks((prev) => {
+    const maxTracks = isPremium ? 60 : 15;
+    if (prev.length >= maxTracks) {
+      alert(t(`Достигнут максимальный лимит в ${maxTracks} дорожек${isPremium ? ' (Premium)' : ''}`));
+      return prev;
+    }
+    
+    const index = prev.findIndex((track) => track.id === id);
+    if (index < 0) return prev;
+    
+    const source = prev[index];
+    const copy: Track = { 
+      ...source, 
+      id: crypto.randomUUID(), 
+      name: `${source.name} (Копия)`, 
+      steps: [...source.steps] 
+    };
+    
+    return [...prev.slice(0, index + 1), copy, ...prev.slice(index + 1)];
+  });
 
   const startRename = (track: DrumTrack) => {
     setEditingId(track.id);
