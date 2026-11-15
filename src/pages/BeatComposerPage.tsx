@@ -89,50 +89,6 @@ const KEY_MAP: Record<string, number> = {
 const MELODIC_TYPES: TrackType[] = ['synth', 'pad', 'piano', 'bass', 'violin', 'guitar', 'flute', 'sax'];
 const PENTATONIC_SCALE = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29, 31, 34, 36];
 
-  const renameTrack = useCallback((trackId: string, newName: string) => {
-    setTracks(prev => prev.map(t => 
-      t.id === trackId ? { ...t, name: newName } : t
-    ));
-  }, []);
-
-  const changeTrackType = useCallback((trackId: string, newType: TrackType) => {
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const preset = TRACK_PRESETS.find(p => p.type === newType);
-        return { 
-          ...t, 
-          type: newType, 
-          name: preset ? preset.name : t.name,
-          color: preset ? preset.color : t.color
-        };
-      }
-      return t;
-    }));
-  }, []);
-
-  const duplicateTrack = useCallback((trackId: string) => {
-    setTracks(prev => {
-      if (prev.length >= 15) {
-        alert(t('Достигнут максимальный лимит в 15 дорожек'));
-        return prev;
-      }
-      const trackToDuplicate = prev.find(t => t.id === trackId);
-      if (!trackToDuplicate) return prev;
-      
-      const newTrack: Track = {
-        ...trackToDuplicate,
-        id: crypto.randomUUID(),
-        name: `${trackToDuplicate.name} (Копия)`,
-        steps: [...trackToDuplicate.steps]
-      };
-      
-      const index = prev.findIndex(t => t.id === trackId);
-      const newTracks = [...prev];
-      newTracks.splice(index + 1, 0, newTrack);
-      return newTracks;
-    });
-  }, [t]);
-
 function createTrack(preset: Omit<Track, 'id' | 'steps' | 'muted'>): Track {
   return {
     ...preset,
@@ -1444,7 +1400,49 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
   }, [stop]);
 
   const selectedTrack = tracks.find((t) => t.id === selectedTrackId);
+  const renameTrack = useCallback((trackId: string, newName: string) => {
+    setTracks(prev => prev.map(t => 
+      t.id === trackId ? { ...t, name: newName } : t
+    ));
+  }, []);
 
+  const changeTrackType = useCallback((trackId: string, newType: TrackType) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const preset = TRACK_PRESETS.find(p => p.type === newType);
+        return { 
+          ...t, 
+          type: newType, 
+          name: preset ? preset.name : t.name,
+          color: preset ? preset.color : t.color
+        };
+      }
+      return t;
+    }));
+  }, []);
+
+  const duplicateTrack = useCallback((trackId: string) => {
+    setTracks(prev => {
+      if (prev.length >= 15) {
+        alert(t('Достигнут максимальный лимит в 15 дорожек'));
+        return prev;
+      }
+      const trackToDuplicate = prev.find(t => t.id === trackId);
+      if (!trackToDuplicate) return prev;
+      
+      const newTrack: Track = {
+        ...trackToDuplicate,
+        id: crypto.randomUUID(),
+        name: `${trackToDuplicate.name} (Копия)`,
+        steps: [...trackToDuplicate.steps]
+      };
+      
+      const index = prev.findIndex(t => t.id === trackId);
+      const newTracks = [...prev];
+      newTracks.splice(index + 1, 0, newTrack);
+      return newTracks;
+    });
+  }, [t]);
   const openEffects = (trackId: string) => {
     setSelectedTrackId(trackId === selectedTrackId ? null : trackId);
     setShowEffectsPanel(trackId !== selectedTrackId);
