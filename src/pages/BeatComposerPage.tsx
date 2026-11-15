@@ -1421,29 +1421,6 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
       return t;
     }));
   }, []);
-
-  const duplicateTrack = useCallback((trackId: string) => {
-    setTracks(prev => {
-      if (prev.length >= 15) {
-        alert(t('Достигнут максимальный лимит в 15 дорожек'));
-        return prev;
-      }
-      const trackToDuplicate = prev.find(t => t.id === trackId);
-      if (!trackToDuplicate) return prev;
-      
-      const newTrack: Track = {
-        ...trackToDuplicate,
-        id: crypto.randomUUID(),
-        name: `${trackToDuplicate.name} (Копия)`,
-        steps: [...trackToDuplicate.steps]
-      };
-      
-      const index = prev.findIndex(t => t.id === trackId);
-      const newTracks = [...prev];
-      newTracks.splice(index + 1, 0, newTrack);
-      return newTracks;
-    });
-  }, [t]);
   
   const openEffects = (trackId: string) => {
     setSelectedTrackId(trackId === selectedTrackId ? null : trackId);
