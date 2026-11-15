@@ -60,7 +60,6 @@ const TRACK_PRESETS: Omit<Track, 'id' | 'steps' | 'muted'>[] = [
 const GENRES = ['Хип-Хоп', 'Трэп', 'House', 'Техно', 'Lo-Fi', 'Драм-н-Бейс', 'Дабстеп', 'Рэгги', 'Рок', 'Поп', 'R&B', 'Фонк'];
 const STEPS = 16;
 
-// Piano keyboard constants
 const PIANO_START = 60;
 const PIANO_END = 84;
 const WHITE_KEYS: number[] = [];
@@ -80,7 +79,6 @@ const midiToNameRu = (midi: number, t: (key: string) => string) => {
   return `${t(NOTE_NAMES_RU[midi % 12])}${octave}`;
 };
 
-// Computer keyboard → MIDI mapping
 const KEY_MAP: Record<string, number> = {
   'z': 60, 'x': 62, 'c': 64, 'v': 65, 'b': 67, 'n': 69, 'm': 71,
   'q': 72, 'w': 74, 'e': 76, 'r': 77, 't': 79, 'y': 81, 'u': 83,
@@ -90,6 +88,50 @@ const KEY_MAP: Record<string, number> = {
 
 const MELODIC_TYPES: TrackType[] = ['synth', 'pad', 'piano', 'bass', 'violin', 'guitar', 'flute', 'sax'];
 const PENTATONIC_SCALE = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29, 31, 34, 36];
+
+  const renameTrack = useCallback((trackId: string, newName: string) => {
+    setTracks(prev => prev.map(t => 
+      t.id === trackId ? { ...t, name: newName } : t
+    ));
+  }, []);
+
+  const changeTrackType = useCallback((trackId: string, newType: TrackType) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const preset = TRACK_PRESETS.find(p => p.type === newType);
+        return { 
+          ...t, 
+          type: newType, 
+          name: preset ? preset.name : t.name,
+          color: preset ? preset.color : t.color
+        };
+      }
+      return t;
+    }));
+  }, []);
+
+  const duplicateTrack = useCallback((trackId: string) => {
+    setTracks(prev => {
+      if (prev.length >= 15) {
+        alert(t('Достигнут максимальный лимит в 15 дорожек'));
+        return prev;
+      }
+      const trackToDuplicate = prev.find(t => t.id === trackId);
+      if (!trackToDuplicate) return prev;
+      
+      const newTrack: Track = {
+        ...trackToDuplicate,
+        id: crypto.randomUUID(),
+        name: `${trackToDuplicate.name} (Копия)`,
+        steps: [...trackToDuplicate.steps]
+      };
+      
+      const index = prev.findIndex(t => t.id === trackId);
+      const newTracks = [...prev];
+      newTracks.splice(index + 1, 0, newTrack);
+      return newTracks;
+    });
+  }, [t]);
 
 function createTrack(preset: Omit<Track, 'id' | 'steps' | 'muted'>): Track {
   return {
@@ -1875,24 +1917,52 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
 
       {/* Effects panel — basic for everyone, Pro tab is premium-only */}
       {showEffectsPanel && selectedTrack && (
-        <div className="bg-theme-surface/50 border border-theme-border rounded-2xl p-4 glass-surface">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-theme-text flex items-center gap-2">
-              <Waves className="w-4 h-4 text-theme-primary" />
-              {t('Эффекты:')} {t(selectedTrack.name)}
-            </h3>
+        <div className="bg-theme-surface/50 border border-theme-border rounded-2xl p-4 glass-surface animate-in fade-in slide-in-from-bottom-2 duration-200">
+          
+          {/* === НОВАЯ ШАПКА С УПРАВЛЕНИЕМ ДОРОЖКОЙ === */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-theme-border">
+            <div className="flex flex-wrap items-center gap-3 flex-1">
+              <Waves className="w-5 h-5 text-theme-primary shrink-0" />
+              
+              {/* Поле для переименования */}
+              <input
+                type="text"
+                value={selectedTrack.name}
+                onChange={(e) => renameTrack(selectedTrack.id, e.target.value)}
+                className="bg-theme-surface2 border border-theme-border rounded-lg px-3 py-1.5 text-sm text-theme-text focus:outline-none focus:border-theme-primary focus:ring-1 focus:ring-theme-primary w-32 sm:w-40 transition-all"
+                placeholder={t('Название')}
+                title={t('Нажмите, чтобы переименовать')}
+              />
+
+              {/* Выпадающий список для смены инструмента */}
+              <select
+                value={selectedTrack.type}
+                onChange={(e) => changeTrackType(selectedTrack.id, e.target.value as TrackType)}
+                className="bg-theme-surface2 border border-theme-border rounded-lg px-3 py-1.5 text-sm text-theme-text focus:outline-none focus:border-theme-primary cursor-pointer hover:bg-theme-border transition-colors"
+                title={t('Сменить инструмент')}
+              >
+                {TRACK_PRESETS.map(preset => (
+                  <option key={preset.type} value={preset.type}>
+                    {t(preset.name)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="flex items-center gap-2">
               <button
                 onClick={() => duplicateTrack(selectedTrack.id)}
-                className="px-3 py-1 bg-theme-surface2 text-theme-muted rounded-lg text-xs hover:text-theme-text transition-colors flex items-center gap-1"
+                className="px-3 py-1.5 bg-theme-primary/10 text-theme-primary border border-theme-primary/30 rounded-lg text-xs font-medium hover:bg-theme-primary/20 transition-colors flex items-center gap-1.5"
+                title={t('Дублировать дорожку со всеми настройками и шагами')}
               >
-                <Plus className="w-3 h-3" /> {t('Дублировать')}
+                <Copy className="w-3.5 h-3.5" /> {t('Дублировать')}
               </button>
               <button
                 onClick={() => { setShowEffectsPanel(false); setSelectedTrackId(null); }}
-                className="text-theme-muted hover:text-theme-text text-xs"
+                className="p-1.5 text-theme-muted hover:text-theme-text hover:bg-theme-surface2 rounded-lg transition-colors"
+                title={t('Закрыть панель')}
               >
-                {t('Закрыть')}
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
