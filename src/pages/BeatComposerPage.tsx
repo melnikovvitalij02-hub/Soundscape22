@@ -1400,6 +1400,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
   }, [stop]);
 
   const selectedTrack = tracks.find((t) => t.id === selectedTrackId);
+  
   const renameTrack = useCallback((trackId: string, newName: string) => {
     setTracks(prev => prev.map(t => 
       t.id === trackId ? { ...t, name: newName } : t
@@ -1423,10 +1424,10 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
 
   const duplicateTrack = useCallback((trackId: string) => {
     setTracks(prev => {
-      if (prev.length >= 15) {
-        alert(t('Достигнут максимальный лимит в 15 дорожек'));
-        return prev;
-      }
+      //if (prev.length >= 15) {
+        //alert(t('Достигнут максимальный лимит в 15 дорожек'));
+        //return prev;
+      //}
       const trackToDuplicate = prev.find(t => t.id === trackId);
       if (!trackToDuplicate) return prev;
       
@@ -1443,6 +1444,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
       return newTracks;
     });
   }, [t]);
+  
   const openEffects = (trackId: string) => {
     setSelectedTrackId(trackId === selectedTrackId ? null : trackId);
     setShowEffectsPanel(trackId !== selectedTrackId);
