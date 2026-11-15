@@ -31,27 +31,30 @@ type Track = {
   eqMid: number;
   eqHigh: number;
   pan: number;
+  offset: number;      // Смещение в шагах (0-15)
+  length: number;      // Длина звука (множитель длительности, 0.1 - 2.0)
+  finePitch: number;   // Тон без фильтра (в полутонах, -12 до 12)
 };
 
 const TRACK_PRESETS: Omit<Track, 'id' | 'steps' | 'muted'>[] = [
-  { name: 'Кик', type: 'kick', volume: 0.8, color: 'bg-theme-primary', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Снейр', type: 'snare', volume: 0.7, color: 'bg-theme-accent', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Хай-Хэт', type: 'hihat', volume: 0.5, color: 'bg-theme-warning', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Открытый хэт', type: 'openhat', volume: 0.5, color: 'bg-theme-warning', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Хлопок', type: 'clap', volume: 0.6, color: 'bg-theme-success', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Том', type: 'tom', volume: 0.7, color: 'bg-theme-success', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Бас', type: 'bass', volume: 0.7, color: 'bg-theme-accent', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Синт', type: 'synth', volume: 0.5, color: 'bg-theme-accent', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Пэд', type: 'pad', volume: 0.4, color: 'bg-theme-primary', reverb: 0.3, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Крэш', type: 'crash', volume: 0.5, color: 'bg-theme-accent', reverb: 0.2, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Рим', type: 'rim', volume: 0.6, color: 'bg-theme-primary', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Перкуссия', type: 'perc', volume: 0.5, color: 'bg-theme-accent', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Пианино', type: 'piano', volume: 0.6, color: 'bg-theme-primary', reverb: 0.1, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Скрипка', type: 'violin', volume: 0.5, color: 'bg-theme-accent', reverb: 0.2, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Гитара', type: 'guitar', volume: 0.5, color: 'bg-theme-warning', reverb: 0.1, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Флейта', type: 'flute', volume: 0.4, color: 'bg-theme-accent', reverb: 0.2, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Саксофон', type: 'sax', volume: 0.5, color: 'bg-theme-accent', reverb: 0.15, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
-  { name: 'Ударные', type: 'drums', volume: 0.7, color: 'bg-theme-muted', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0 },
+  { name: 'Кик', type: 'kick', volume: 0.8, color: 'bg-theme-primary', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Снейр', type: 'snare', volume: 0.7, color: 'bg-theme-accent', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Хай-Хэт', type: 'hihat', volume: 0.5, color: 'bg-theme-warning', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Открытый хэт', type: 'openhat', volume: 0.5, color: 'bg-theme-warning', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Хлопок', type: 'clap', volume: 0.6, color: 'bg-theme-success', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Том', type: 'tom', volume: 0.7, color: 'bg-theme-success', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Бас', type: 'bass', volume: 0.7, color: 'bg-theme-accent', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Синт', type: 'synth', volume: 0.5, color: 'bg-theme-accent', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Пэд', type: 'pad', volume: 0.4, color: 'bg-theme-primary', reverb: 0.3, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Крэш', type: 'crash', volume: 0.5, color: 'bg-theme-accent', reverb: 0.2, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Рим', type: 'rim', volume: 0.6, color: 'bg-theme-primary', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Перкуссия', type: 'perc', volume: 0.5, color: 'bg-theme-accent', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Пианино', type: 'piano', volume: 0.6, color: 'bg-theme-primary', reverb: 0.1, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Скрипка', type: 'violin', volume: 0.5, color: 'bg-theme-accent', reverb: 0.2, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Гитара', type: 'guitar', volume: 0.5, color: 'bg-theme-warning', reverb: 0.1, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Флейта', type: 'flute', volume: 0.4, color: 'bg-theme-accent', reverb: 0.2, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Саксофон', type: 'sax', volume: 0.5, color: 'bg-theme-accent', reverb: 0.15, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
+  { name: 'Ударные', type: 'drums', volume: 0.7, color: 'bg-theme-muted', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
 ];
 
 const GENRES = ['Хип-Хоп', 'Трэп', 'House', 'Техно', 'Lo-Fi', 'Драм-н-Бейс', 'Дабстеп', 'Рэгги', 'Рок', 'Поп', 'R&B', 'Фонк'];
@@ -123,6 +126,9 @@ function normalizeTrack(t: Partial<Track>): Track {
     eqMid: t.eqMid ?? 0,
     eqHigh: t.eqHigh ?? 0,
     pan: t.pan ?? 0,
+    offset: t.offset ?? 0,
+    length: t.length ?? 1.0,
+    finePitch: t.finePitch ?? 0,
   };
 }
 
@@ -1925,53 +1931,41 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <label className="text-xs text-theme-muted flex items-center gap-1">
-                  <Radio className="w-3 h-3" /> Reverb
+                  <RotateCcw className="w-3 h-3" /> Смещение (шаги)
                 </label>
                 <input
-                  type="range" min={0} max={1} step={0.05}
-                  value={selectedTrack.reverb}
-                  onChange={(e) => setTrackEffect(selectedTrack.id, 'reverb', Number(e.target.value))}
+                  type="range" min={0} max={15} step={1}
+                  value={selectedTrack.offset}
+                  onChange={(e) => setTrackEffect(selectedTrack.id, 'offset' as any, Number(e.target.value))}
                   className="w-full accent-theme-primary"
                 />
-                <span className="text-xs text-theme-muted font-mono">{Math.round(selectedTrack.reverb * 100)}%</span>
+                <span className="text-xs text-theme-muted font-mono">{selectedTrack.offset}</span>
               </div>
+
               <div className="space-y-2">
                 <label className="text-xs text-theme-muted flex items-center gap-1">
-                  <Zap className="w-3 h-3" /> Delay
+                  <Activity className="w-3 h-3" /> Длина звука
                 </label>
                 <input
-                  type="range" min={0} max={1} step={0.05}
-                  value={selectedTrack.delay}
-                  onChange={(e) => setTrackEffect(selectedTrack.id, 'delay', Number(e.target.value))}
+                  type="range" min={0.1} max={2.0} step={0.1}
+                  value={selectedTrack.length}
+                  onChange={(e) => setTrackEffect(selectedTrack.id, 'length' as any, Number(e.target.value))}
                   className="w-full accent-theme-primary"
                 />
-                <span className="text-xs text-theme-muted font-mono">{Math.round(selectedTrack.delay * 100)}%</span>
+                <span className="text-xs text-theme-muted font-mono">x{selectedTrack.length.toFixed(1)}</span>
               </div>
+
               <div className="space-y-2">
                 <label className="text-xs text-theme-muted flex items-center gap-1">
-                  <Sliders className="w-3 h-3" /> Filter
-                </label>
-                <input
-                  type="range" min={0} max={1} step={0.05}
-                  value={selectedTrack.filter}
-                  onChange={(e) => setTrackEffect(selectedTrack.id, 'filter', Number(e.target.value))}
-                  className="w-full accent-theme-primary"
-                />
-                <span className="text-xs text-theme-muted font-mono">
-                  {selectedTrack.filter === 0 ? 'Off' : selectedTrack.filter > 0.5 ? 'HP' : 'LP'} {Math.round(selectedTrack.filter * 100)}%
-                </span>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs text-theme-muted flex items-center gap-1">
-                  <Headphones className="w-3 h-3" /> Pitch
+                  <Headphones className="w-3 h-3" /> Тон (без фильтра)
                 </label>
                 <input
                   type="range" min={-12} max={12} step={1}
-                  value={selectedTrack.pitch}
-                  onChange={(e) => setTrackEffect(selectedTrack.id, 'pitch', Number(e.target.value))}
+                  value={selectedTrack.finePitch}
+                  onChange={(e) => setTrackEffect(selectedTrack.id, 'finePitch' as any, Number(e.target.value))}
                   className="w-full accent-theme-primary"
                 />
-                <span className="text-xs text-theme-muted font-mono">{selectedTrack.pitch > 0 ? '+' : ''}{selectedTrack.pitch} st</span>
+                <span className="text-xs text-theme-muted font-mono">{selectedTrack.finePitch > 0 ? '+' : ''}{selectedTrack.finePitch} st</span>
               </div>
             </div>
           )}
