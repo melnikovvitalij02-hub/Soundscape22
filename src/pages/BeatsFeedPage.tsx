@@ -1,0 +1,1138 @@
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useAuth } from '@/context/AuthContext';
+import { useLocale } from '@/context/LocaleContext';
+import { supabase } from '@/lib/supabase';
+import type { Page } from '@/components/Sidebar';
+import {
+  Heart,
+  MessageCircle,
+  Mic,
+  Coins,
+  Gem,
+  GitFork,
+  Play,
+  Pause,
+  Send,
+  Loader2,
+  X,
+  Music,
+  TrendingUp,
+  Download,
+  Lock,
+  Search,
+  MoreVertical,
+  Edit2,
+  EyeOff,
+  Eye,
+  Trash2,
+  Star,
+} from 'lucide-react';
+import { makeSound, type TrackType } from '@/pages/BeatComposerPage';
+import { STEPS, buildPattern, trackEffects, type SavedTrack } from '@/lib/beatPlayback';
+import { downloadAudioFile, renderSequencerWav, saveBlob, safeFileName } from '@/lib/beatDownload';
+
+type Beat = {
+  id: string;
+  user_id: string;
+  title: string;
+  genre: string;
+  bpm: number;
+  audio_url: string | null;
+  cover_url: string | null;
+  play_count: number;
+  created_at: string;
+  is_public?: boolean;
+  download_price?: number | null;
+  is_free?: boolean;
+  description?: string | null;
+  download_access?: string | null;
+  comment_access?: string | null;
+  data?: { tracks?: SavedTrack[]; bpm?: number; genre?: string; bars?: number } | null;
+  creator?: {
+    username: string;
+    avatar_url: string | null;
+  } | null;
+};
+
+type BeatComment = {
+  id: string;
+  beat_id: string;
+  user_id: string;
+  username: string;
+  avatar_url: string | null;
+  content: string;
+  created_at: string;
+};
+
+type VoiceComment = {
+  id: string;
+  beat_id: string;
+  user_id: string;
+  username: string;
+  avatar_url: string | null;
+  audio_url: string;
+  duration: number;
+  created_at: string;
+};
+
+const PAGE_SIZE = 5;
+
+export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPage: (p: Page) => void; onNavigateToMessages?: (userId: string) => void }) {
+  const { profile, isGuest, addCoins, addXp, refreshProfile } = useAuth();
+  const { t } = useLocale();
+  const [beats, setBeats] = useState<Beat[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPageNum] = useState(0);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [likedBeats, setLikedBeats] = useState<Set<string>>(new Set());
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [commentsByBeat, setCommentsByBeat] = useState<Record<string, BeatComment[]>>({});
+  const [voiceCommentsByBeat, setVoiceCommentsByBeat] = useState<Record<string, VoiceComment[]>>({});
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [recordingBeatId, setRecordingBeatId] = useState<string | null>(null);
+  const [recordSecs, setRecordSecs] = useState(0);
+  const [supportMsg, setSupportMsg] = useState<Record<string, string>>({});
+  const [showRemixFor, setShowRemixFor] = useState<string | null>(null);
+  const [remixTitle, setRemixTitle] = useState('');
+  const [remixUrl, setRemixUrl] = useState('');
+  const [status, setStatus] = useState<string | null>(null);
+  const [ownedBeats, setOwnedBeats] = useState<Set<string>>(new Set());
+  const [buyingBeatId, setBuyingBeatId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'date' | 'likes' | 'comments'>('date');
+  const [menuOpenBeatId, setMenuOpenBeatId] = useState<string | null>(null);
+  const [renamingBeat, setRenamingBeat] = useState<Beat | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const intervalRef = useRef<number | null>(null);
+  const stepRef = useRef(0);
+  const playingPatternRef = useRef<{ pattern: (TrackType | false)[][]; bpm: number } | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordTimerRef = useRef<number | null>(null);
+  const recorderStartRef = useRef<number>(0);
+
+  const getCtx = useCallback(() => {
+    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+    return audioCtxRef.current;
+  }, []);
+
+  const stopPlayback = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (audioElRef.current) {
+      audioElRef.current.pause();
+      audioElRef.current = null;
+    }
+    setPlayingId(null);
+    stepRef.current = 0;
+    playingPatternRef.current = null;
+  }, []);
+
+  const playBeat = useCallback(async (beat: Beat) => {
+    if (playingId === beat.id) {
+      stopPlayback();
+      return;
+    }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (audioElRef.current) {
+      audioElRef.current.pause();
+      audioElRef.current = null;
+    }
+
+    if (beat.audio_url) {
+      const audio = new Audio(beat.audio_url);
+      audio.onended = stopPlayback;
+      audioElRef.current = audio;
+      setPlayingId(beat.id);
+      audio.play().catch(stopPlayback);
+    } else {
+      const ctx = getCtx();
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+      const savedTracks = beat.data?.tracks;
+      const effectiveBpm = beat.data?.bpm || beat.bpm || 120;
+      const bars = beat.data?.bars || 1;
+      const totalSteps = STEPS * bars;
+
+      if (savedTracks && savedTracks.length > 0) {
+        const audibleTracks = savedTracks.filter((tr) => !tr.muted);
+        stepRef.current = 0;
+        setPlayingId(beat.id);
+
+        const stepDuration = 60000 / effectiveBpm / 4;
+        const tick = () => {
+          const step = stepRef.current;
+          const time = ctx.currentTime;
+          audibleTracks.forEach((track) => {
+            if (track.steps[step]) {
+              makeSound(ctx, null, track.type, time, track.volume * 0.7, trackEffects(track));
+            }
+          });
+          stepRef.current = (step + 1) % totalSteps;
+        };
+        tick();
+        intervalRef.current = window.setInterval(tick, stepDuration);
+      } else {
+        const pattern = buildPattern(beat.genre);
+        stepRef.current = 0;
+        setPlayingId(beat.id);
+
+        const stepDuration = 60000 / (beat.bpm || 120) / 4;
+        const tick = () => {
+          const step = stepRef.current;
+          const time = ctx.currentTime;
+          pattern.forEach((track) => {
+            const hit = track[step];
+            if (typeof hit === 'string') {
+              makeSound(ctx, null, hit as TrackType, time, 0.5, trackEffects());
+            }
+          });
+          stepRef.current = (step + 1) % 16;
+        };
+        tick();
+        intervalRef.current = window.setInterval(tick, stepDuration);
+      }
+    }
+
+    supabase
+      .from('beats')
+      .update({ play_count: (beat.play_count || 0) + 1 })
+      .eq('id', beat.id)
+      .then(() => {
+        setBeats((prev) =>
+          prev.map((b) => (b.id === beat.id ? { ...b, play_count: (b.play_count || 0) + 1 } : b))
+        );
+      });
+    addXp(2);
+  }, [playingId, getCtx, stopPlayback, addXp]);
+
+  useEffect(() => {
+    if (!profile || isGuest) return;
+    (async () => {
+      const { data } = await supabase
+        .from('beat_purchases')
+        .select('beat_id')
+        .eq('buyer_id', profile.id);
+      if (data) setOwnedBeats(new Set(data.map((r: { beat_id: string }) => r.beat_id)));
+    })();
+  }, [profile, isGuest]);
+
+  const handleBuyBeat = async (beat: Beat) => {
+    if (!profile || isGuest) return;
+    if ((beat.download_price ?? 0) <= 0) return;
+    setBuyingBeatId(beat.id);
+    const { error } = await supabase.rpc('purchase_beat', { p_beat_id: beat.id });
+    if (error) {
+      setStatus(t('Не удалось купить бит: проверьте баланс и доступность трека'));
+      setBuyingBeatId(null);
+      return;
+    }
+    await refreshProfile();
+    setOwnedBeats((prev) => new Set(prev).add(beat.id));
+    setBuyingBeatId(null);
+    setStatus(t('Бит куплен! Теперь доступен для скачивания') + ': ' + beat.title);
+    setTimeout(() => setStatus(null), 3000);
+  };
+
+  const fetchBeats = useCallback(async (pageNum: number): Promise<Beat[]> => {
+    const from = pageNum * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from('beats')
+      .select('id, user_id, title, genre, bpm, audio_url, cover_url, play_count, created_at, data, is_public, download_price, is_free, description, download_access, comment_access')
+      .eq('is_public', true)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    if (error) {
+      console.error('fetchBeats error', error);
+      return [];
+    }
+
+    const fetchedBeats = (data || []) as unknown as Beat[];
+    const userIds = [...new Set(fetchedBeats.map((beat) => beat.user_id))];
+    if (userIds.length === 0) return fetchedBeats;
+
+    const { data: creators, error: creatorsError } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url')
+      .in('id', userIds);
+    if (creatorsError) {
+      console.error('fetch beat creators error', creatorsError);
+      return fetchedBeats;
+    }
+
+    const creatorMap = new Map((creators || []).map((creator) => [creator.id, creator]));
+    return fetchedBeats.map((beat) => ({ ...beat, creator: creatorMap.get(beat.user_id) }));
+  }, []);
+
+  const loadMore = useCallback(async () => {
+    if (loading || !hasMore) return;
+    setLoading(true);
+    const next = page + 1;
+    const newBeats = await fetchBeats(next);
+    if (newBeats.length === 0) {
+      setHasMore(false);
+    } else {
+      setBeats((prev) => [...prev, ...newBeats]);
+      setPageNum(next);
+    }
+    setLoading(false);
+  }, [loading, hasMore, page, fetchBeats]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setLoading(true);
+      const initial = await fetchBeats(0);
+      if (active) {
+        setBeats(initial);
+        setPageNum(0);
+        setHasMore(initial.length === PAGE_SIZE);
+        setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [fetchBeats]);
+
+  useEffect(() => {
+    if (!profile || beats.length === 0) return;
+    const beatIds = beats.map((b) => b.id);
+    (async () => {
+      const { data: myLikes } = await supabase
+        .from('beat_likes')
+        .select('beat_id')
+        .eq('user_id', profile.id)
+        .in('beat_id', beatIds);
+      if (myLikes) {
+        setLikedBeats((prev) => {
+          const next = new Set(prev);
+          myLikes.forEach((l) => next.add(l.beat_id));
+          return next;
+        });
+      }
+      const { data: counts } = await supabase
+        .from('beat_likes')
+        .select('beat_id')
+        .in('beat_id', beatIds);
+      if (counts) {
+        const map: Record<string, number> = {};
+        counts.forEach((c) => {
+          map[c.beat_id] = (map[c.beat_id] || 0) + 1;
+        });
+        setLikeCounts((prev) => ({ ...prev, ...map }));
+      }
+      const { data: cc } = await supabase
+        .from('beat_comments')
+        .select('beat_id')
+        .in('beat_id', beatIds);
+      if (cc) {
+        const ccMap: Record<string, number> = {};
+        cc.forEach((c) => {
+          ccMap[c.beat_id] = (ccMap[c.beat_id] || 0) + 1;
+        });
+        setCommentCounts((prev) => ({ ...prev, ...ccMap }));
+      }
+    })();
+  }, [profile, beats]);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadMore();
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
+  useEffect(() => () => stopPlayback(), [stopPlayback]);
+
+  useEffect(() => {
+    const handleClick = () => setMenuOpenBeatId(null);
+    if (menuOpenBeatId) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [menuOpenBeatId]);
+
+  const toggleLike = async (beat: Beat) => {
+    if (!profile || isGuest) return;
+    const isLiked = likedBeats.has(beat.id);
+    if (isLiked) {
+      const { error } = await supabase.from('beat_likes').delete().eq('beat_id', beat.id).eq('user_id', profile.id);
+      if (error) return;
+      setLikedBeats((prev) => {
+        const next = new Set(prev);
+        next.delete(beat.id);
+        return next;
+      });
+      setLikeCounts((prev) => ({ ...prev, [beat.id]: Math.max(0, (prev[beat.id] || 0) - 1) }));
+    } else {
+      const { error } = await supabase.from('beat_likes').insert({ beat_id: beat.id, user_id: profile.id });
+      if (error) return;
+      setLikedBeats((prev) => new Set(prev).add(beat.id));
+      setLikeCounts((prev) => ({ ...prev, [beat.id]: (prev[beat.id] || 0) + 1 }));
+      addXp(1);
+    }
+  };
+
+  const toggleComments = async (beatId: string) => {
+    if (expandedComments.has(beatId)) {
+      setExpandedComments((prev) => {
+        const next = new Set(prev);
+        next.delete(beatId);
+        return next;
+      });
+      return;
+    }
+    setExpandedComments((prev) => new Set(prev).add(beatId));
+    const [textRes, voiceRes] = await Promise.all([
+      supabase
+        .from('beat_comments')
+        .select('*')
+        .eq('beat_id', beatId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('voice_comments')
+        .select('*')
+        .eq('beat_id', beatId)
+        .order('created_at', { ascending: false }),
+    ]);
+    if (textRes.data) setCommentsByBeat((prev) => ({ ...prev, [beatId]: textRes.data as BeatComment[] }));
+    if (voiceRes.data) setVoiceCommentsByBeat((prev) => ({ ...prev, [beatId]: voiceRes.data as VoiceComment[] }));
+  };
+
+  const submitComment = async (beatId: string) => {
+    if (!profile || isGuest) return;
+    const content = (commentInputs[beatId] || '').trim();
+    if (!content) return;
+    const beat = beats.find((b) => b.id === beatId);
+    if (beat && profile?.id !== beat.user_id) {
+      if (beat.comment_access === 'nobody' || (beat.comment_access === 'premium' && profile?.is_premium !== true)) {
+        setStatus(t('Автор ограничил комментарии к этому биту'));
+        return;
+      }
+    }
+    const { data, error } = await supabase
+      .from('beat_comments')
+      .insert({
+        beat_id: beatId,
+        user_id: profile.id,
+        username: profile.username,
+        avatar_url: profile.avatar_url,
+        content,
+      })
+      .select('*')
+      .maybeSingle();
+    if (error) {
+      setStatus(t('Ошибка при отправке комментария'));
+      return;
+    }
+    if (data) {
+      setCommentsByBeat((prev) => ({
+        ...prev,
+        [beatId]: [data as BeatComment, ...(prev[beatId] || [])],
+      }));
+      setCommentCounts((prev) => ({ ...prev, [beatId]: (prev[beatId] || 0) + 1 }));
+    }
+    setCommentInputs((prev) => ({ ...prev, [beatId]: '' }));
+    addXp(2);
+  };
+
+  const startRecording = async (beatId: string) => {
+    if (!profile || isGuest) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recorder.ondataavailable = (e: BlobEvent) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((tr) => tr.stop());
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const finalDuration = recordTimerRef.current ? Math.max(1, Math.round((Date.now() - recorderStartRef.current) / 1000)) : recordSecs;
+        const fileName = `voice_${profile.id}_${Date.now()}.webm`;
+        const { error: upErr } = await supabase.storage
+          .from('voice-comments')
+          .upload(fileName, blob, { contentType: 'audio/webm' });
+        if (upErr) {
+          setStatus(t('Ошибка загрузки голосового комментария'));
+          return;
+        }
+        const { data: pub } = supabase.storage.from('voice-comments').getPublicUrl(fileName);
+        const { error: insErr } = await supabase.from('voice_comments').insert({
+          beat_id: beatId,
+          user_id: profile.id,
+          username: profile.username,
+          avatar_url: profile.avatar_url,
+          audio_url: pub.publicUrl,
+          duration: finalDuration,
+        });
+        if (insErr) {
+          setStatus(t('Ошибка сохранения голосового комментария'));
+          return;
+        }
+        const { data: vc } = await supabase
+          .from('voice_comments')
+          .select('*')
+          .eq('beat_id', beatId)
+          .order('created_at', { ascending: false });
+        if (vc) setVoiceCommentsByBeat((prev) => ({ ...prev, [beatId]: vc as VoiceComment[] }));
+        addXp(5);
+        setStatus(t('Голосовой комментарий добавлен'));
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      recorderStartRef.current = Date.now();
+      setRecordingBeatId(beatId);
+      setRecordSecs(0);
+      recordTimerRef.current = window.setInterval(() => {
+        setRecordSecs((s) => s + 1);
+      }, 1000);
+    } catch {
+      setStatus(t('Нет доступа к микрофону'));
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    mediaRecorderRef.current = null;
+    setRecordingBeatId(null);
+    if (recordTimerRef.current) {
+      clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+  };
+
+  const support = async (beat: Beat) => {
+    if (!profile || isGuest) return;
+    if ((profile.coins || 0) < 100) {
+      setStatus(t('Недостаточно монет для поддержки'));
+      return;
+    }
+    const msg = (supportMsg[beat.id] || '').trim();
+    const { error } = await supabase.from('support_donations').insert({
+      supporter_id: profile.id,
+      creator_id: beat.user_id,
+      amount: 100,
+      message: msg,
+    });
+    if (error) {
+      setStatus(t('Ошибка при поддержке'));
+      return;
+    }
+    await addCoins(-100);
+    await refreshProfile();
+    setSupportMsg((prev) => ({ ...prev, [beat.id]: '' }));
+    setStatus(t('Поддержка отправлена! Автор получил 100 монет'));
+    setTimeout(() => setStatus(null), 2500);
+  };
+
+  const submitRemix = async (beat: Beat) => {
+    if (!profile || isGuest) return;
+    if (!remixTitle.trim() || !remixUrl.trim()) {
+      setStatus(t('Заполните название и ссылку на ремикс'));
+      return;
+    }
+    const { error } = await supabase.from('remixes').insert({
+      original_beat_id: beat.id,
+      remixer_id: profile.id,
+      title: remixTitle.trim(),
+      audio_url: remixUrl.trim(),
+    });
+    if (error) {
+      setStatus(t('Ошибка при создании ремикса'));
+      return;
+    }
+    setShowRemixFor(null);
+    setRemixTitle('');
+    setRemixUrl('');
+    await addXp(20);
+    setStatus(t('Ремикс создан! +20 XP'));
+    setTimeout(() => setStatus(null), 2500);
+  };
+
+  const renameBeat = async (beat: Beat) => {
+    if (!profile || !renameValue.trim()) return;
+    const { error } = await supabase.from('beats').update({ title: renameValue.trim() }).eq('id', beat.id).eq('user_id', profile.id);
+    if (!error) {
+      setBeats((prev) => prev.map((b) => (b.id === beat.id ? { ...b, title: renameValue.trim() } : b)));
+      setStatus(t('Трек переименован'));
+      setTimeout(() => setStatus(null), 2000);
+    }
+    setRenamingBeat(null);
+    setRenameValue('');
+  };
+
+  const toggleBeatPublic = async (beat: Beat) => {
+    if (!profile) return;
+    const newPublic = !(beat.is_public !== false);
+    const { error } = await supabase.from('beats').update({ is_public: newPublic }).eq('id', beat.id).eq('user_id', profile.id);
+    if (!error) {
+      setBeats((prev) => prev.map((b) => (b.id === beat.id ? { ...b, is_public: newPublic } : b)));
+      setMenuOpenBeatId(null);
+    }
+  };
+
+  const deleteBeat = async (beat: Beat) => {
+    if (!profile) return;
+    if (!confirm(t('Удалить трек навсегда?'))) return;
+    const { error } = await supabase.from('beats').delete().eq('id', beat.id).eq('user_id', profile.id);
+    if (!error) {
+      setBeats((prev) => prev.filter((b) => b.id !== beat.id));
+      setMenuOpenBeatId(null);
+      setStatus(t('Трек удалён'));
+      setTimeout(() => setStatus(null), 2000);
+    }
+  };
+
+  const downloadBeat = async (beat: Beat) => {
+    setMenuOpenBeatId(null);
+    const isOwner = profile?.id === beat.user_id;
+    const owned = ownedBeats.has(beat.id);
+    if (!isOwner && !owned) {
+      if (beat.download_access === 'nobody') {
+        setStatus(t('Автор запретил скачивание этого бита'));
+        setTimeout(() => setStatus(null), 3000);
+        return;
+      }
+      if ((beat.download_price ?? 0) > 0 && !owned) {
+        setStatus(t('Сначала купите этот бит, затем скачивайте'));
+        setTimeout(() => setStatus(null), 3000);
+        return;
+      }
+      if (profile?.is_premium !== true) {
+        setStatus(t('Скачивание треков доступно только подписчикам Premium'));
+        setTimeout(() => setStatus(null), 3000);
+        return;
+      }
+    }
+    const tracks = beat.data?.tracks;
+    try {
+      if (beat.audio_url) {
+        await downloadAudioFile(beat.audio_url, beat.title);
+      } else if (tracks && tracks.length > 0) {
+        setStatus(t('Готовим файл для скачивания...'));
+        const wav = await renderSequencerWav(tracks, beat.data?.bpm || beat.bpm || 120, beat.data?.bars || 1);
+        saveBlob(wav, `${safeFileName(beat.title)}.wav`);
+        setStatus(null);
+      } else {
+        setStatus(t('Этот бит не имеет аудиофайла для скачивания'));
+        setTimeout(() => setStatus(null), 2500);
+      }
+    } catch {
+      setStatus(t('Не удалось скачать бит'));
+      setTimeout(() => setStatus(null), 2500);
+    }
+  };
+
+  const coverFor = (b: Beat) => b.cover_url || '/cover-igotu.webp';
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const playingBeat = useMemo(() => beats.find((b) => b.id === playingId) || null, [beats, playingId]);
+
+  const filteredBeats = useMemo(() => {
+    let result = [...beats];
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          (b.creator?.username || '').toLowerCase().includes(q)
+      );
+    }
+    if (sortBy === 'likes') {
+      result.sort((a, b) => (likeCounts[b.id] || 0) - (likeCounts[a.id] || 0));
+    } else if (sortBy === 'comments') {
+      result.sort((a, b) => (commentCounts[b.id] || 0) - (commentCounts[a.id] || 0));
+    }
+    return result;
+  }, [beats, searchQuery, sortBy, likeCounts, commentCounts]);
+
+  const isOwnBeat = (beat: Beat) => profile?.id === beat.user_id;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-theme-text flex items-center gap-2">
+            <Music className="w-6 h-6 text-theme-primary" />
+            {t('Лента битов')}
+          </h1>
+          <p className="text-theme-muted text-sm mt-1">
+            {t('Свежие биты от сообщества — слушай, комментируй, поддерживай')}
+          </p>
+        </div>
+        <button
+          onClick={() => setPage('beat')}
+          className="px-4 py-2 bg-theme-primary text-white rounded-lg text-sm font-medium hover:bg-theme-primary-hover transition-colors flex items-center gap-2"
+        >
+          <TrendingUp className="w-4 h-4" /> {t('Создать бит')}
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-muted" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('Поиск по названию или автору...')}
+            className="w-full pl-10 pr-4 py-2.5 bg-theme-surface2 border border-theme-border rounded-xl text-theme-text text-sm focus:outline-none focus:border-theme-primary transition-colors"
+          />
+        </div>
+        <div className="flex gap-2">
+          {(['date', 'likes', 'comments'] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setSortBy(s)}
+              className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                sortBy === s
+                  ? 'bg-theme-primary text-white'
+                  : 'bg-theme-surface2 text-theme-muted hover:text-theme-text'
+              }`}
+            >
+              {s === 'date' ? t('По дате') : s === 'likes' ? t('По лайкам') : t('По комментариям')}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {status && (
+        <div className="px-4 py-2 rounded-lg bg-theme-primary-bg border border-theme-primary-border text-theme-primary-text text-sm">
+          {status}
+        </div>
+      )}
+
+      {beats.length === 0 && !loading && (
+        <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl p-8 text-center">
+          <p className="text-theme-muted">{t('Пока нет битов. Будь первым!')}</p>
+        </div>
+      )}
+
+      {beats.length > 0 && filteredBeats.length === 0 && (
+        <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl p-8 text-center">
+          <p className="text-theme-muted">{t('Ничего не найдено по запросу')}</p>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {filteredBeats.map((beat) => {
+          const isLiked = likedBeats.has(beat.id);
+          const likeCount = likeCounts[beat.id] || 0;
+          const cCount = commentCounts[beat.id] || 0;
+          const commentsOpen = expandedComments.has(beat.id);
+          const comments = commentsByBeat[beat.id] || [];
+          const voiceComments = voiceCommentsByBeat[beat.id] || [];
+          const isPlaying = playingId === beat.id;
+          const ownBeat = isOwnBeat(beat);
+          return (
+            <div
+              key={beat.id}
+              className="glass-surface bg-theme-surface/60 border border-theme-border rounded-2xl overflow-hidden"
+            >
+              <div className="flex gap-4 p-4">
+                {/* Cover + play */}
+                <div className="relative w-28 h-28 rounded-xl overflow-hidden shrink-0 bg-theme-surface2">
+                  <img src={coverFor(beat)} alt={beat.title} className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => playBeat(beat)}
+                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                  >
+                    {isPlaying ? (
+                      <Pause className="w-8 h-8 text-white" />
+                    ) : (
+                      <Play className="w-8 h-8 text-white" fill="white" />
+                    )}
+                  </button>
+                  {isPlaying && (
+                    <div className="absolute bottom-2 right-2 flex gap-0.5 items-end h-4">
+                      <div className="w-1 bg-theme-primary rounded-full animate-pulse" style={{ height: '60%' }} />
+                      <div className="w-1 bg-theme-primary rounded-full animate-pulse" style={{ height: '100%', animationDelay: '0.1s' }} />
+                      <div className="w-1 bg-theme-primary rounded-full animate-pulse" style={{ height: '40%', animationDelay: '0.2s' }} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="text-theme-text font-semibold break-words leading-snug" title={beat.title}>{beat.title}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        {beat.creator?.avatar_url ? (
+                          <img src={beat.creator.avatar_url} alt="" className="w-5 h-5 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full bg-theme-primary/20 flex items-center justify-center text-theme-primary text-[10px] font-bold">
+                            {beat.creator?.username?.[0]?.toUpperCase() || '?'}
+                          </div>
+                        )}
+                        <span className="text-xs text-theme-muted truncate">{beat.creator?.username || t('Аноним')}</span>
+                        {beat.is_public === false && (
+                          <span className="text-[10px] text-theme-warning flex items-center gap-0.5"><Lock className="w-3 h-3" /> {t('Приватный')}</span>
+                        )}
+                      </div>
+                      {beat.description && (
+                        <p className="text-xs text-theme-muted mt-1.5 break-words line-clamp-2">{beat.description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 text-xs text-theme-muted">
+                        <span className="px-2 py-0.5 rounded-md bg-theme-surface2">{t(beat.genre)}</span>
+                        <span className="font-mono">{beat.bpm} BPM</span>
+                        <span>· {beat.play_count || 0} ▶</span>
+                      </div>
+                      {/* 3-dot menu for own beats */}
+                      {ownBeat && (
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenBeatId(menuOpenBeatId === beat.id ? null : beat.id);
+                            }}
+                            className="p-1.5 text-theme-muted hover:text-theme-text rounded-lg hover:bg-theme-surface2 transition-colors"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                          {menuOpenBeatId === beat.id && (
+                            <div
+                              className="absolute right-0 top-full mt-1 z-30 w-48 bg-theme-surface border border-theme-border rounded-xl shadow-xl py-1"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                onClick={() => { setRenamingBeat(beat); setRenameValue(beat.title); setMenuOpenBeatId(null); }}
+                                className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
+                              >
+                                <Edit2 className="w-4 h-4" /> {t('Переименовать')}
+                              </button>
+                              <button
+                                onClick={() => toggleBeatPublic(beat)}
+                                className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
+                              >
+                                {beat.is_public !== false ? <><EyeOff className="w-4 h-4" /> {t('Сделать приватным')}</> : <><Eye className="w-4 h-4" /> {t('Сделать публичным')}</>}
+                              </button>
+                              <button
+                                onClick={() => downloadBeat(beat)}
+                                className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
+                              >
+                                <Download className="w-4 h-4" /> {t('Скачать')}
+                              </button>
+                              <div className="border-t border-theme-border my-1" />
+                              <button
+                                onClick={() => deleteBeat(beat)}
+                                className="w-full px-3 py-2 text-left text-sm text-theme-danger hover:bg-theme-danger/10 flex items-center gap-2"
+                              >
+                                <Trash2 className="w-4 h-4" /> {t('Удалить')}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    <button
+                      onClick={() => toggleLike(beat)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        isLiked
+                          ? 'bg-theme-danger/15 text-theme-danger'
+                          : 'bg-theme-surface2 text-theme-muted hover:text-theme-text'
+                      }`}
+                    >
+                      <Heart className="w-4 h-4" fill={isLiked ? 'currentColor' : 'none'} />
+                      {likeCount}
+                    </button>
+                    <button
+                      onClick={() => toggleComments(beat.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-surface2 text-theme-muted hover:text-theme-text transition-colors"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      {cCount}
+                    </button>
+                    <button
+                      onClick={() => startRecording(beat.id)}
+                      disabled={recordingBeatId !== null}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-surface2 text-theme-muted hover:text-theme-text transition-colors disabled:opacity-50"
+                    >
+                      <Mic className="w-4 h-4" />
+                      {recordingBeatId === beat.id ? `${t('Запись')} ${formatTime(recordSecs)}` : t('Голос')}
+                    </button>
+                    <button
+                      onClick={() => support(beat)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-surface2 text-theme-muted hover:text-theme-warning transition-colors"
+                    >
+                      <Gem className="w-4 h-4" />
+                      {t('Поддержать')}
+                    </button>
+                    <button
+                      onClick={() => setShowRemixFor(beat.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-surface2 text-theme-muted hover:text-theme-primary transition-colors"
+                    >
+                      <GitFork className="w-4 h-4" />
+                      {t('Ремикс')}
+                    </button>
+                    {beat.is_free ? (
+                      <button
+                        onClick={() => downloadBeat(beat)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-success/15 text-theme-success hover:opacity-80 transition-opacity"
+                      >
+                        <Download className="w-4 h-4" /> {t('Скачать')}
+                      </button>
+                    ) : !beat.is_free && (beat.download_price ?? 0) > 0 ? (
+                      ownedBeats.has(beat.id) ? (
+                        <button
+                          onClick={() => downloadBeat(beat)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-success/15 text-theme-success hover:opacity-80 transition-opacity"
+                        >
+                          <Download className="w-4 h-4" /> {t('Скачать')}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleBuyBeat(beat)}
+                          disabled={buyingBeatId === beat.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-warning/15 text-theme-warning hover:opacity-80 transition-opacity disabled:opacity-50"
+                        >
+                          {buyingBeatId === beat.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                          {t('Купить за')} {beat.download_price} {t('монет')}
+                        </button>
+                      )
+                    ) : null}
+                    {isPlaying && (
+                      <button
+                        onClick={stopPlayback}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-danger text-white transition-colors"
+                      >
+                        <Pause className="w-4 h-4" /> {t('Стоп')}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Support message input */}
+                  <input
+                    value={supportMsg[beat.id] || ''}
+                    onChange={(e) => setSupportMsg((prev) => ({ ...prev, [beat.id]: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') support(beat);
+                    }}
+                    placeholder={t('Сообщение автору (100 монет)...')}
+                    className="mt-2 w-full px-3 py-1.5 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-xs focus:outline-none focus:border-theme-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Recording controls */}
+              {recordingBeatId === beat.id && (
+                <div className="px-4 pb-3 flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-xs text-theme-danger">
+                    <span className="w-2 h-2 rounded-full bg-theme-danger animate-pulse" />
+                    {t('Запись...')} {formatTime(recordSecs)}
+                  </div>
+                  <button
+                    onClick={stopRecording}
+                    className="px-3 py-1.5 bg-theme-danger text-white rounded-lg text-xs font-medium"
+                  >
+                    {t('Остановить')}
+                  </button>
+                </div>
+              )}
+
+              {/* Comments */}
+              {commentsOpen && (
+                <div className="px-4 pb-4 border-t border-theme-border pt-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={commentInputs[beat.id] || ''}
+                      onChange={(e) => setCommentInputs((prev) => ({ ...prev, [beat.id]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') submitComment(beat.id);
+                      }}
+                      placeholder={t('Написать комментарий...')}
+                      className="flex-1 px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm focus:outline-none focus:border-theme-primary"
+                    />
+                    <button
+                      onClick={() => submitComment(beat.id)}
+                      className="p-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {voiceComments.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-theme-muted uppercase tracking-wider">{t('Голосовые комментарии')}</p>
+                      {voiceComments.map((vc) => (
+                        <div key={vc.id} className="flex items-center gap-2 p-2 bg-theme-surface2 rounded-lg">
+                          {vc.avatar_url ? (
+                            <img src={vc.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-theme-primary/20 flex items-center justify-center text-theme-primary text-[10px] font-bold">
+                              {vc.username?.[0]?.toUpperCase() || '?'}
+                            </div>
+                          )}
+                          <span className="text-xs text-theme-muted">{vc.username}</span>
+                          <audio controls src={vc.audio_url} className="h-7 flex-1" />
+                          <span className="text-xs text-theme-muted font-mono">{formatTime(vc.duration)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {comments.length > 0 ? (
+                    <div className="space-y-2">
+                      {comments.map((c) => (
+                        <div key={c.id} className="flex gap-2 p-2 bg-theme-surface2 rounded-lg">
+                          {c.avatar_url ? (
+                            <img src={c.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-theme-primary/20 flex items-center justify-center text-theme-primary text-[10px] font-bold shrink-0">
+                              {c.username?.[0]?.toUpperCase() || '?'}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-xs text-theme-muted">{c.username}</p>
+                            <p className="text-sm text-theme-text break-words">{c.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-theme-muted">{t('Нет комментариев. Будь первым!')}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Infinite scroll sentinel */}
+      <div ref={sentinelRef} className="h-10 flex items-center justify-center">
+        {loading && <Loader2 className="w-5 h-5 text-theme-muted animate-spin" />}
+        {!hasMore && beats.length > 0 && (
+          <p className="text-xs text-theme-muted">{t('Это все биты на сегодня')}</p>
+        )}
+      </div>
+
+      {/* Remix modal */}
+      {showRemixFor && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowRemixFor(null)}
+        >
+          <div
+            className="glass-surface bg-theme-surface border border-theme-border rounded-2xl p-6 w-full max-w-md space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-theme-text font-semibold flex items-center gap-2">
+                <GitFork className="w-5 h-5 text-theme-primary" /> {t('Создать ремикс')}
+              </h3>
+              <button onClick={() => setShowRemixFor(null)} className="text-theme-muted hover:text-theme-text">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <input
+                value={remixTitle}
+                onChange={(e) => setRemixTitle(e.target.value)}
+                placeholder={t('Название ремикса')}
+                className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm focus:outline-none focus:border-theme-primary"
+              />
+              <input
+                value={remixUrl}
+                onChange={(e) => setRemixUrl(e.target.value)}
+                placeholder={t('Ссылка на аудио (URL)')}
+                className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm focus:outline-none focus:border-theme-primary"
+              />
+            </div>
+            <button
+              onClick={() => {
+                const beat = beats.find((b) => b.id === showRemixFor);
+                if (beat) submitRemix(beat);
+              }}
+              className="w-full px-4 py-2 bg-theme-primary text-white rounded-lg text-sm font-medium hover:bg-theme-primary-hover transition-colors"
+            >
+              {t('Опубликовать ремикс')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Rename modal */}
+      {renamingBeat && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => { setRenamingBeat(null); setRenameValue(''); }}
+        >
+          <div
+            className="glass-surface bg-theme-surface border border-theme-border rounded-2xl p-6 w-full max-w-md space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-theme-text font-semibold flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-theme-primary" /> {t('Переименовать трек')}
+              </h3>
+              <button onClick={() => { setRenamingBeat(null); setRenameValue(''); }} className="text-theme-muted hover:text-theme-text">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') renameBeat(renamingBeat); }}
+              placeholder={t('Новое название')}
+              className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm focus:outline-none focus:border-theme-primary"
+              autoFocus
+            />
+            <button
+              onClick={() => renameBeat(renamingBeat)}
+              disabled={!renameValue.trim()}
+              className="w-full px-4 py-2 bg-theme-primary text-white rounded-lg text-sm font-medium hover:bg-theme-primary-hover transition-colors disabled:opacity-50"
+            >
+              {t('Сохранить')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {playingBeat && (
+        <div className="fixed bottom-4 right-4 z-40 glass-surface bg-theme-surface/90 border border-theme-border rounded-xl px-4 py-2 flex items-center gap-3">
+          <Music className="w-4 h-4 text-theme-primary animate-pulse" />
+          <span className="text-sm text-theme-text truncate max-w-[160px]">{t('Играет')}: {playingBeat.title}</span>
+          <button onClick={stopPlayback} className="text-theme-muted hover:text-theme-danger">
+            <Pause className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

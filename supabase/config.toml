@@ -1,0 +1,20 @@
+[functions.generate-cover]
+verify_jwt = false
+
+[functions.yoomoney-webhook]
+verify_jwt = false
+
+[functions.rate-limit]
+verify_jwt = false
+
+[functions.audio-proxy]
+verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = false
+
+[functions.music-search]
+verify_jwt = false
+
+[functions.send-call-push]
+verify_jwt = true

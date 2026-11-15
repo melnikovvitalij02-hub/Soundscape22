@@ -1,0 +1,33 @@
+{
+  "projectId": "70782017",
+  "functions": {
+    "audio-proxy": {
+      "hasChanged": false,
+      "hash": "15fdc750194ab6b4336a1cceb4c9aaff9d18ce160c7b2baaadad3511176f964c"
+    },
+    "generate-cover": {
+      "hasChanged": false,
+      "hash": "e0ba0f05405cb0360163351f36f0f657393b75d2784ad1626c4715ef32e133c0"
+    },
+    "music-search": {
+      "hasChanged": false,
+      "hash": "e06a17b9ffe92d96a5a57746be93b6949eefd164bfd7faa23bc6469cacf1eaf6"
+    },
+    "rate-limit": {
+      "hasChanged": false,
+      "hash": "25b41d695d1afaec51b1789c6d888141cf3a2ef34bfcef8e8f7fbb24f72a37dc"
+    },
+    "send-call-push": {
+      "hasChanged": false,
+      "hash": "fee1b902aac123af4bb9551857bc8cf7ce047c881cd77c3579f2581b8c12d3da"
+    },
+    "send-notification": {
+      "hasChanged": false,
+      "hash": "56135177d375d076313588f32b438015c6d49d96e6369f7afc7a39398024cfe6"
+    },
+    "yoomoney-webhook": {
+      "hasChanged": false,
+      "hash": "5042ae1fd9313143ad32dca7c2b4c7d1b968db7b72ef43a60d577f1dd6a76bde"
+    }
+  }
+}
