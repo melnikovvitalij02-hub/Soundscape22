@@ -1099,14 +1099,23 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
     );
   };
 
-  const addTrack = (presetType?: TrackType) => {
-    if (tracks.length >= 15) return;
-    const used = tracks.map((t) => t.type);
-    const preset = presetType
-      ? TRACK_PRESETS.find((p) => p.type === presetType && !used.includes(p.type))
-      : TRACK_PRESETS.find((p) => !used.includes(p.type));
-    if (preset) setTracks([...tracks, createTrack(preset)]);
-  };
+const addTrack = (presetType?: TrackType) => {
+  const maxTracks = isPremium ? 60 : 15;
+  
+  if (tracks.length >= maxTracks) {
+    alert(t(`Достигнут максимальный лимит в ${maxTracks} дорожек${isPremium ? ' (Premium)' : ''}`));
+    return;
+  }
+  
+  const used = tracks.map((t) => t.type);
+  const preset = presetType
+    ? TRACK_PRESETS.find((p) => p.type === presetType && !used.includes(p.type))
+    : TRACK_PRESETS.find((p) => !used.includes(p.type));
+  
+  if (preset) {
+    setTracks([...tracks, createTrack(preset)]);
+  }
+};
 
   const removeTrack = (id: string) => {
     setTracks(tracks.filter((t) => t.id !== id));
@@ -2192,7 +2201,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
               );
             });
           })()}
-          <p className="text-[12px] text-theme-muted mt-4">{tracks.length}/15 {t('дорожек')}</p>
+          <p className="text-[12px] text-theme-muted mt-4">{tracks.length}/{isPremium ? 60 : 15} {t('дорожек')}</p>
         </div>
 
         <div className="bg-theme-surface/60 border border-theme-border rounded-2xl p-6 glass-surface">
