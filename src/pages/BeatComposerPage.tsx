@@ -1967,6 +1967,55 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
                 />
                 <span className="text-xs text-theme-muted font-mono">{selectedTrack.finePitch > 0 ? '+' : ''}{selectedTrack.finePitch} st</span>
               </div>
+                <label className="text-xs text-theme-muted flex items-center gap-1">
+                  <Radio className="w-3 h-3" /> Reverb
+                </label>
+                <input
+                  type="range" min={0} max={1} step={0.05}
+                  value={selectedTrack.reverb}
+                  onChange={(e) => setTrackEffect(selectedTrack.id, 'reverb', Number(e.target.value))}
+                  className="w-full accent-theme-primary"
+                />
+                <span className="text-xs text-theme-muted font-mono">{Math.round(selectedTrack.reverb * 100)}%</span>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-theme-muted flex items-center gap-1">
+                  <Zap className="w-3 h-3" /> Delay
+                </label>
+                <input
+                  type="range" min={0} max={1} step={0.05}
+                  value={selectedTrack.delay}
+                  onChange={(e) => setTrackEffect(selectedTrack.id, 'delay', Number(e.target.value))}
+                  className="w-full accent-theme-primary"
+                />
+                <span className="text-xs text-theme-muted font-mono">{Math.round(selectedTrack.delay * 100)}%</span>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-theme-muted flex items-center gap-1">
+                  <Sliders className="w-3 h-3" /> Filter
+                </label>
+                <input
+                  type="range" min={0} max={1} step={0.05}
+                  value={selectedTrack.filter}
+                  onChange={(e) => setTrackEffect(selectedTrack.id, 'filter', Number(e.target.value))}
+                  className="w-full accent-theme-primary"
+                />
+                <span className="text-xs text-theme-muted font-mono">
+                  {selectedTrack.filter === 0 ? 'Off' : selectedTrack.filter > 0.5 ? 'HP' : 'LP'} {Math.round(selectedTrack.filter * 100)}%
+                </span>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-theme-muted flex items-center gap-1">
+                  <Headphones className="w-3 h-3" /> Pitch
+                </label>
+                <input
+                  type="range" min={-12} max={12} step={1}
+                  value={selectedTrack.pitch}
+                  onChange={(e) => setTrackEffect(selectedTrack.id, 'pitch', Number(e.target.value))}
+                  className="w-full accent-theme-primary"
+                />
+                <span className="text-xs text-theme-muted font-mono">{selectedTrack.pitch > 0 ? '+' : ''}{selectedTrack.pitch} st</span>
+              </div>
             </div>
           )}
 
