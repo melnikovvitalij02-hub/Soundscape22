@@ -1967,6 +1967,8 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
                 />
                 <span className="text-xs text-theme-muted font-mono">{selectedTrack.finePitch > 0 ? '+' : ''}{selectedTrack.finePitch} st</span>
               </div>
+              
+              <div className="space-y-2">
                 <label className="text-xs text-theme-muted flex items-center gap-1">
                   <Radio className="w-3 h-3" /> Reverb
                 </label>
@@ -1978,6 +1980,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
                 />
                 <span className="text-xs text-theme-muted font-mono">{Math.round(selectedTrack.reverb * 100)}%</span>
               </div>
+          
               <div className="space-y-2">
                 <label className="text-xs text-theme-muted flex items-center gap-1">
                   <Zap className="w-3 h-3" /> Delay
@@ -1990,6 +1993,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
                 />
                 <span className="text-xs text-theme-muted font-mono">{Math.round(selectedTrack.delay * 100)}%</span>
               </div>
+      
               <div className="space-y-2">
                 <label className="text-xs text-theme-muted flex items-center gap-1">
                   <Sliders className="w-3 h-3" /> Filter
@@ -2004,6 +2008,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
                   {selectedTrack.filter === 0 ? 'Off' : selectedTrack.filter > 0.5 ? 'HP' : 'LP'} {Math.round(selectedTrack.filter * 100)}%
                 </span>
               </div>
+    
               <div className="space-y-2">
                 <label className="text-xs text-theme-muted flex items-center gap-1">
                   <Headphones className="w-3 h-3" /> Pitch
