@@ -1424,8 +1424,12 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
 
   const duplicateTrack = useCallback((trackId: string) => {
     setTracks(prev => {
+      if (prev.length >= 15) {
+        alert(t('Достигнут максимальный лимит в 15 дорожек'));
+        return prev;
+      }
       const trackToDuplicate = prev.find(t => t.id === trackId);
-      if (!trackToDuplicate) return prev;}
+      if (!trackToDuplicate) return prev;
       
       const newTrack: Track = {
         ...trackToDuplicate,
