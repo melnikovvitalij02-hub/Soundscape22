@@ -611,6 +611,8 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     setMenuOpenBeatId(null);
     const isOwner = profile?.id === beat.user_id;
     const owned = ownedBeats.has(beat.id);
+    
+    // Проверки прав доступа
     if (!isOwner && !owned) {
       if (beat.download_access === 'nobody') {
         setStatus(t('Автор запретил скачивание этого бита'));
@@ -628,22 +630,31 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
         return;
       }
     }
+
     const tracks = beat.data?.tracks;
     try {
       if (beat.audio_url) {
+        setStatus(t('Скачивание аудиофайла...'));
         await downloadAudioFile(beat.audio_url, beat.title);
-      } else if (tracks && tracks.length > 0) {
-        setStatus(t('Готовим файл для скачивания...'));
-        const wav = await renderSequencerWav(tracks, beat.data?.bpm || beat.bpm || 120, beat.data?.bars || 1);
-        saveBlob(wav, `${safeFileName(beat.title)}.wav`);
         setStatus(null);
+      } else if (tracks && tracks.length > 0) {
+        setStatus(t('Рендеринг бита в MP3 (это может занять несколько секунд)...'));
+        const mp3 = await renderSequencerMp3(
+          tracks, 
+          beat.data?.bpm || beat.bpm || 120, 
+          beat.data?.bars || 1
+        );
+        saveBlob(mp3, `${safeFileName(beat.title)}.mp3`);
+        setStatus(t('Скачивание началось!'));
+        setTimeout(() => setStatus(null), 2500);
       } else {
-        setStatus(t('Этот бит не имеет аудиофайла для скачивания'));
+        setStatus(t('Этот бит не имеет данных для скачивания'));
         setTimeout(() => setStatus(null), 2500);
       }
-    } catch {
-      setStatus(t('Не удалось скачать бит'));
-      setTimeout(() => setStatus(null), 2500);
+    } catch (err) {
+      console.error('❌ Ошибка скачивания бита:', err); // <-- ЭТО ПОКАЖЕТ ТОЧНУЮ ПРИЧИНУ В КОНСОЛИ
+      setStatus(t('Не удалось скачать бит. Проверьте консоль (F12) для деталей.'));
+      setTimeout(() => setStatus(null), 4000);
     }
   };
 
