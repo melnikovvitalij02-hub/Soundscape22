@@ -168,7 +168,7 @@ export function makeSound(
   ctx: AudioContext,
   analyser: AnalyserNode | null,
   type: TrackType,
-  actualTime: number,
+  time: number,
   volume: number,
   effects: ExtendedEffects,
   bpm: number,
@@ -177,7 +177,7 @@ export function makeSound(
     // Вычисляем реальное время старта с учётом offset (сдвиг в шагах)
   const bpm = 120; // TODO: передай актуальный BPM из пропсов или контекста
   const stepDuration = 60 / bpm / 4; // Длительность одного шага в секундах (для 16-х нот)
-  const actualTime = actualTime + (effects.offset || 0) * stepDuration;
+  const actualTime = time + (effects.offset || 0) * stepDuration;
   
   // Множитель длины звука
   const lengthMultiplier = effects.length || 1.0;
