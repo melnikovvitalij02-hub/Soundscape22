@@ -159,6 +159,9 @@ export type ExtendedEffects = {
   reverb: number; delay: number; filter: number; pitch: number;
   distortion: number; bitcrush: number; compressor: number;
   eqLow: number; eqMid: number; eqHigh: number; pan: number;
+  offset: number;      // Сдвиг в шагах (0-15)
+  length: number;      // Множитель длительности (0.1 - 2.0)
+  finePitch: number;   // Доп. питч без влияния на фильтр (-12 до 12)
 };
 
 export function makeSound(
@@ -1167,15 +1170,38 @@ const addTrack = (presetType?: TrackType) => {
     }).catch(() => {});
   };
 
-  const duplicateTrack = (id: string) => {
-    const track = tracks.find((t) => t.id === id);
-    if (!track || tracks.length >= 15) return;
-    const preset = TRACK_PRESETS.find((p) => p.type === track.type);
-    if (!preset) return;
-    const used = tracks.map((t) => t.type);
-    if (used.includes(track.type)) return;
-    setTracks([...tracks, { ...preset, id: crypto.randomUUID(), steps: [...track.steps], muted: false }]);
-  };
+  const duplicateTrack =   useCallback((id: string) => {
+    const maxTracks = isPremium ? 60 : 15;
+  
+    setTracks((prev) => {
+    // 1. Проверка лимита
+      if (prev.length >= maxTracks)   {
+        alert(t(`Достигнут лимит в     ${maxTracks} дорожек${isPremium ? ' (Premium)' : ''}`));
+      return prev;
+      }
+
+    // 2. Находим исходную дорожку
+      const sourceTrack = prev.find((t) => t.id === id);
+      if (!sourceTrack) return prev;
+
+    // 3. Создаём ТОЧНУЮ копию со всеми настройками (volume, эффекты, offset, length, finePitch и т.д.)
+      const newTrack: Track = {
+        ...sourceTrack, // Копируем ВСЕ текущие параметры дорожки
+        id: crypto.randomUUID(), // Генерируем новый ID
+        name: `${sourceTrack.name} (Копия)`, // Добавляем пометку к имени
+        steps: [...sourceTrack.steps], // Делаем независимую копию массива шагов
+        muted: false // Снимаем мьют с новой копии, чтобы её было слышно
+      };
+
+    // 4. Вставляем копию сразу ПОСЛЕ оригинала (для удобства)
+      const index = prev.findIndex((t) => t.id === id);
+      return [
+        ...prev.slice(0, index + 1),
+        newTrack,
+        ...prev.slice(index + 1)
+      ];
+    });
+  }, [isPremium, t]);
 
   const loadDemoBeat = (g: string) => {
     setGenre(g);
@@ -2201,7 +2227,10 @@ const addTrack = (presetType?: TrackType) => {
               );
             });
           })()}
-          <p className="text-[12px] text-theme-muted mt-4">{tracks.length}/{isPremium ? 60 : 15} {t('дорожек')}</p>
+          <p className="text-[12px] text-theme-muted mt-4">
+            {tracks.length}/{isPremium ? 60 : 15} {t('дорожек')}
+            {isPremium && <span className="text-theme-primary ml-1">(Premium)</span>}
+          </p>
         </div>
 
         <div className="bg-theme-surface/60 border border-theme-border rounded-2xl p-6 glass-surface">
