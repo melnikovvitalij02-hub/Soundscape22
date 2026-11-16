@@ -36,6 +36,14 @@ type Track = {
   pan: number;
 };
 
+const [showPublishModal, setShowPublishModal] = useState(false);
+const [pubDescription, setPubDescription] = useState('');
+const [pubDownloadAccess, setPubDownloadAccess] = useState<'premium' | 'paid' | 'nobody'>('premium');
+const [pubCommentAccess, setPubCommentAccess] = useState<'all' | 'premium' | 'nobody'>('all');
+const [pubPriceGem, setPubPriceGem] = useState(100);
+const [pubPriceCoin, setPubPriceCoin] = useState(1000);
+const [pubIsHot, setPubIsHot] = useState(false);
+const [publishStatus, setPublishStatus] = useState<string | null>(null);
 const TRACK_PRESETS: Omit<Track, 'id' | 'steps' | 'muted'>[] = [
   { name: 'Кик', type: 'kick', volume: 0.8, color: 'bg-theme-primary', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
   { name: 'Снейр', type: 'snare', volume: 0.7, color: 'bg-theme-accent', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
@@ -1340,13 +1348,47 @@ const addTrack = (presetType?: TrackType) => {
     setTimeout(() => setSaveStatus(null), 3500);
   };
 
-  const publishToFeed = async () => {
-    if (!profile) return;
-    if (isGuest || !session?.user) {
-      setPublishStatus(t('Войдите в аккаунт, чтобы публиковать биты в ленту'));
-      setTimeout(() => setPublishStatus(null), 3500);
-      return;
-    }
+    const publishToFeed = async () => {
+      if (!profile) {
+        alert(t('Необходимо авторизоваться'));
+        return;
+      }
+      if (!isPremium) {
+        alert(t('Публикация битов в ленту доступна только Premium-пользователям'));
+        return;
+      }
+
+      setPublishStatus(t('Публикация...'));
+  
+      const { error } = await supabase.from('beats').insert({
+        user_id: profile.id,
+        title: projectName || t('Без названия'),
+        genre: genre || 'Не указан',
+        bpm: bpm,
+    // ВАЖНО: сохраняем JSON секвенсора, чтобы его можно было рендерить и скачивать как MP3
+        data: { tracks, bpm, bars, genre }, 
+        play_count: 0,
+        description: pubDescription.trim() || null,
+        download_access: pubDownloadAccess,
+        comment_access: pubCommentAccess,
+        price_gem: pubDownloadAccess === 'paid' ? pubPriceGem : 0,
+        price_coin: pubDownloadAccess === 'paid' ? pubPriceCoin : 0,
+        is_hot: pubIsHot,
+        is_public: true,
+      });
+
+       if (error) {
+          console.error('Ошибка публикации:', error);
+          setPublishStatus(t('Ошибка при публикации'));
+          setTimeout(() => setPublishStatus(null), 3000);
+        } else {
+          setPublishStatus(t('Бит успешно опубликован в ленте!'));
+          setTimeout(() => {
+          setPublishStatus(null);
+          setShowPublishModal(false); // Закрываем модалку, если она есть
+        }, 2000);
+      }
+    };
     const hasSteps = tracks.some((t) => t.steps.some((s) => s));
     if (!hasSteps) {
       setPublishStatus(t('Добавьте хотя бы один шаг!'));
