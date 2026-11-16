@@ -175,7 +175,7 @@ export function makeSound(
   stepIndex?: number,
 ) {
     // Вычисляем реальное время старта с учётом offset (сдвиг в шагах)
-  const bpm = 120; // TODO: передай актуальный BPM из пропсов или контекста
+
   const stepDuration = 60 / bpm / 4; // Длительность одного шага в секундах (для 16-х нот)
   const actualTime = time + (effects.offset || 0) * stepDuration;
   
