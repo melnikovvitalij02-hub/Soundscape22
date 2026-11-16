@@ -1040,7 +1040,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
             offset: track.offset || 0,
             length: track.length || 1.0,
             finePitch: track.finePitch || 0,
-          }, bpm, i, step);
+          }, bpm, step);
         }
       });
       stepRef.current = (step + 1) % totalSteps;
