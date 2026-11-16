@@ -168,11 +168,22 @@ export function makeSound(
   ctx: AudioContext,
   analyser: AnalyserNode | null,
   type: TrackType,
-  time: number,
+  actualTime: number,
   volume: number,
   effects: ExtendedEffects,
+  bpm: number,
   stepIndex?: number,
 ) {
+    // Вычисляем реальное время старта с учётом offset (сдвиг в шагах)
+  const bpm = 120; // TODO: передай актуальный BPM из пропсов или контекста
+  const stepDuration = 60 / bpm / 4; // Длительность одного шага в секундах (для 16-х нот)
+  const actualTime = actualTime + (effects.offset || 0) * stepDuration;
+  
+  // Множитель длины звука
+  const lengthMultiplier = effects.length || 1.0;
+  
+  // Множитель частоты для finePitch
+  const finePitchMultiplier = Math.pow(2, (effects.finePitch || 0) / 12);
   const masterGain = ctx.createGain();
   masterGain.gain.value = volume;
 
@@ -335,28 +346,28 @@ export function makeSound(
     case 'kick': {
       const click = ctx.createOscillator();
       click.type = 'square';
-      click.frequency.setValueAtTime(1200 * pitchMultiplier, time);
-      click.frequency.exponentialRampToValueAtTime(40, time + 0.02);
+      click.frequency.setValueAtTime(1200 * pitchMultiplier * finePitchMultiplier, actualTime);
+      click.frequency.exponentialRampToValueAtTime(40, actualTime + 0.02);
       const clickGain = ctx.createGain();
-      clickGain.gain.setValueAtTime(volume * 0.4, time);
-      clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+      clickGain.gain.setValueAtTime(volume * 0.4, actualTime);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, actualTime + 0.03 * lengthMultiplier);
       click.connect(clickGain);
       connectToChain(clickGain);
-      click.start(time);
-      click.stop(time + 0.03);
+      click.start(actualTime);
+      click.stop(actualTime + 0.03 * lengthMultiplier);
 
       const osc = ctx.createOscillator();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(150 * pitchMultiplier, time);
-      osc.frequency.exponentialRampToValueAtTime(30, time + 0.08);
-      osc.frequency.exponentialRampToValueAtTime(30, time + 0.5);
+      osc.frequency.setValueAtTime(150 * pitchMultiplier * finePitchMultiplier, actualTime);
+      osc.frequency.exponentialRampToValueAtTime(30, actualTime + 0.08);
+      osc.frequency.exponentialRampToValueAtTime(30, actualTime + 0.5);
       const oscGain = ctx.createGain();
-      oscGain.gain.setValueAtTime(volume, time);
-      oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+      oscGain.gain.setValueAtTime(volume, actualTime);
+      oscGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 0.5 * lengthMultiplier);
       osc.connect(oscGain);
       connectToChain(oscGain);
-      osc.start(time);
-      osc.stop(time + 0.5);
+      osc.start(actualTime);
+      osc.stop(actualTime + 0.5 * lengthMultiplier + 0.1);
       break;
     }
     case 'snare': {
@@ -369,46 +380,46 @@ export function makeSound(
       noiseFilter.type = 'highpass';
       noiseFilter.frequency.value = 1000;
       const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(volume * 0.7, time);
-      noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+      noiseGain.gain.setValueAtTime(volume * 0.7, actualTime);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 0.2 * lengthMultiplier);
       noise.connect(noiseFilter);
       noiseFilter.connect(noiseGain);
       connectToChain(noiseGain);
-      noise.start(time);
-      noise.stop(time + 0.2);
+      noise.start(actualTime);
+      noise.stop(actualTime + 0.2 * lengthMultiplier);
 
       const tone = ctx.createOscillator();
       tone.type = 'triangle';
-      tone.frequency.setValueAtTime(200 * pitchMultiplier, time);
+      tone.frequency.setValueAtTime(200 * pitchMultiplier * finePitchMultiplier, actualTime);
       const toneFilter = ctx.createBiquadFilter();
       toneFilter.type = 'bandpass';
       toneFilter.frequency.value = 200;
       toneFilter.Q.value = 2;
       const toneGain = ctx.createGain();
-      toneGain.gain.setValueAtTime(volume * 0.4, time);
-      toneGain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+      toneGain.gain.setValueAtTime(volume * 0.4, actualTime);
+      toneGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 0.15 * lengthMultiplier);
       tone.connect(toneFilter);
       toneFilter.connect(toneGain);
       connectToChain(toneGain);
-      tone.start(time);
-      tone.stop(time + 0.15);
+      tone.start(actualTime);
+      tone.stop(actualTime + 0.15 * lengthMultiplier);
       break;
     }
     case 'hihat': {
       const osc = ctx.createOscillator();
       osc.type = 'square';
-      osc.frequency.setValueAtTime(10000 * pitchMultiplier, time);
+      osc.frequency.setValueAtTime(10000 * pitchMultiplier * finePitchMultiplier, actualTime);
       const filter = ctx.createBiquadFilter();
       filter.type = 'highpass';
       filter.frequency.value = 10000;
       const oscGain = ctx.createGain();
-      oscGain.gain.setValueAtTime(volume * 0.3, time);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+      oscGain.gain.setValueAtTime(volume * 0.3, actualTime);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, actualTime + 0.03 * lengthMultiplier);
       osc.connect(filter);
       filter.connect(oscGain);
       connectToChain(oscGain);
-      osc.start(time);
-      osc.stop(time + 0.03);
+      osc.start(actualTime);
+      osc.stop(actualTime + 0.03 * lengthMultiplier);
       break;
     }
     case 'openhat': {
@@ -423,12 +434,12 @@ export function makeSound(
       filter.frequency.value = 7000;
       noise.connect(filter);
       const noiseGain = ctx.createGain();
-      noiseGain.gain.setValueAtTime(volume, time);
-      noiseGain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+      noiseGain.gain.setValueAtTime(volume, actualTime);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 0.3 * lengthMultiplier);
       filter.connect(noiseGain);
       connectToChain(noiseGain);
-      noise.start(time);
-      noise.stop(time + 0.3);
+      noise.start(actualTime);
+      noise.stop(actualTime + 0.3 * lengthMultiplier);
       break;
     }
     case 'clap': {
@@ -444,98 +455,98 @@ export function makeSound(
         filter.frequency.value = 1500 * basePitch;
         noise.connect(filter);
         const clapGain = ctx.createGain();
-        clapGain.gain.setValueAtTime(volume, time + i * 0.01);
-        clapGain.gain.exponentialRampToValueAtTime(0.01, time + i * 0.01 + 0.1);
+        clapGain.gain.setValueAtTime(volume, actualTime + i * 0.01);
+        clapGain.gain.exponentialRampToValueAtTime(0.01, actualTime + i * 0.01 + 0.1 * lengthMultiplier);
         filter.connect(clapGain);
         connectToChain(clapGain);
-        noise.start(time + i * 0.01);
-        noise.stop(time + i * 0.01 + 0.1);
+        noise.start(actualTime + i * 0.01);
+        noise.stop(actualTime + i * 0.01 + 0.1 * lengthMultiplier);
       }
       break;
     }
     case 'tom': {
       const osc = ctx.createOscillator();
-      osc.frequency.setValueAtTime(200 * pitchMultiplier, time);
-      osc.frequency.exponentialRampToValueAtTime(80, time + 0.3);
+      osc.frequency.setValueAtTime(200 * pitchMultiplier * finePitchMultiplier, actualTime);
+      osc.frequency.exponentialRampToValueAtTime(80, actualTime + 0.3);
       const tomGain = ctx.createGain();
-      tomGain.gain.setValueAtTime(volume, time);
-      tomGain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+      tomGain.gain.setValueAtTime(volume, actualTime);
+      tomGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 0.3 * lengthMultiplier);
       osc.connect(tomGain);
       connectToChain(tomGain);
-      osc.start(time);
-      osc.stop(time + 0.3);
+      osc.start(actualTime);
+      osc.stop(actualTime + 0.3 * lengthMultiplier);
       break;
     }
     case 'bass': {
       const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
       filter.Q.value = 8;
-      filter.frequency.setValueAtTime(200, time);
-      filter.frequency.exponentialRampToValueAtTime(800, time + 0.1);
-      filter.frequency.exponentialRampToValueAtTime(200, time + 0.3);
+      filter.frequency.setValueAtTime(200 * finePitchMultiplier, actualTime);
+      filter.frequency.exponentialRampToValueAtTime(800, actualTime + 0.1);
+      filter.frequency.exponentialRampToValueAtTime(200, actualTime + 0.3);
       const bassGain = ctx.createGain();
-      bassGain.gain.setValueAtTime(volume, time);
-      bassGain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+      bassGain.gain.setValueAtTime(volume, actualTime);
+      bassGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 0.3 * lengthMultiplier);
       filter.connect(bassGain);
       connectToChain(bassGain);
 
       const osc1 = ctx.createOscillator();
       osc1.type = 'sawtooth';
-      osc1.frequency.setValueAtTime(80 * pitchMultiplier, time);
+      osc1.frequency.setValueAtTime(80 * pitchMultiplier * finePitchMultiplier, actualTime);
       const osc2 = ctx.createOscillator();
       osc2.type = 'sawtooth';
-      osc2.frequency.setValueAtTime(80.5 * pitchMultiplier, time);
+      osc2.frequency.setValueAtTime(80.5 * pitchMultiplier * finePitchMultiplier, actualTime);
       osc1.connect(filter);
       osc2.connect(filter);
 
       const sub = ctx.createOscillator();
       sub.type = 'sine';
-      sub.frequency.setValueAtTime(40 * pitchMultiplier, time);
+      sub.frequency.setValueAtTime(40 * pitchMultiplier * finePitchMultiplier, actualTime);
       const subGain = ctx.createGain();
       subGain.gain.value = 0.5;
       sub.connect(subGain);
       subGain.connect(filter);
 
-      osc1.start(time);
-      osc1.stop(time + 0.3);
-      osc2.start(time);
-      osc2.stop(time + 0.3);
-      sub.start(time);
-      sub.stop(time + 0.3);
+      osc1.start(actualTime);
+      osc1.stop(actualTime + 0.3 * lengthMultiplier);
+      osc2.start(actualTime);
+      osc2.stop(actualTime + 0.3 * lengthMultiplier);
+      sub.start(actualTime);
+      sub.stop(actualTime + 0.3 * lengthMultiplier);
       break;
     }
     case 'synth': {
       const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(3000, time);
-      filter.frequency.exponentialRampToValueAtTime(800, time + 0.2);
+      filter.frequency.setValueAtTime(3000 * finePitchMultiplier, actualTime);
+      filter.frequency.exponentialRampToValueAtTime(800, actualTime + 0.2);
       filter.Q.value = 2;
       const synthGain = ctx.createGain();
-      synthGain.gain.setValueAtTime(volume * 0.25, time);
-      synthGain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+      synthGain.gain.setValueAtTime(volume * 0.25, actualTime);
+      synthGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 0.2 * lengthMultiplier);
       filter.connect(synthGain);
       connectToChain(synthGain);
 
       const osc1 = ctx.createOscillator();
       osc1.type = 'sawtooth';
-      osc1.frequency.setValueAtTime(440 * pitchMultiplier, time);
+      osc1.frequency.setValueAtTime(440 * pitchMultiplier * finePitchMultiplier, actualTime);
       const osc2 = ctx.createOscillator();
       osc2.type = 'sawtooth';
-      osc2.frequency.setValueAtTime(442 * pitchMultiplier, time);
+      osc2.frequency.setValueAtTime(442 * pitchMultiplier * finePitchMultiplier, actualTime);
       osc1.connect(filter);
       osc2.connect(filter);
 
-      osc1.start(time);
-      osc1.stop(time + 0.2);
-      osc2.start(time);
-      osc2.stop(time + 0.2);
+      osc1.start(actualTime);
+      osc1.stop(actualTime + 0.2 * lengthMultiplier);
+      osc2.start(actualTime);
+      osc2.stop(actualTime + 0.2 * lengthMultiplier);
       break;
     }
     case 'pad': {
       const padGain = ctx.createGain();
-      padGain.gain.setValueAtTime(0.0001, time);
-      padGain.gain.linearRampToValueAtTime(volume * 0.2, time + 0.2);
-      padGain.gain.exponentialRampToValueAtTime(0.01, time + 1.0);
+      padGain.gain.setValueAtTime(0.0001, actualTime);
+      padGain.gain.linearRampToValueAtTime(volume * 0.2, actualTime + 0.2);
+      padGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 1.0 * lengthMultiplier);
       connectToChain(padGain);
 
       const freqs = [220, 220.5, 277].map((f) => f * pitchMultiplier);
@@ -543,10 +554,10 @@ export function makeSound(
       freqs.map((f, i) => {
         const o = ctx.createOscillator();
         o.type = types[i];
-        o.frequency.setValueAtTime(f, time);
+        o.frequency.setValueAtTime(f * finePitchMultiplier, actualTime);
         o.connect(padGain);
-        o.start(time);
-        o.stop(time + 1.0);
+        o.start(actualTime);
+        o.stop(actualTime + 1.0 * lengthMultiplier);
         return o;
       });
       break;
@@ -563,25 +574,25 @@ export function makeSound(
       filter.frequency.value = 5000;
       noise.connect(filter);
       const crashGain = ctx.createGain();
-      crashGain.gain.setValueAtTime(volume, time);
-      crashGain.gain.exponentialRampToValueAtTime(0.01, time + 0.8);
+      crashGain.gain.setValueAtTime(volume, actualTime);
+      crashGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 0.8 * lengthMultiplier);
       filter.connect(crashGain);
       connectToChain(crashGain);
-      noise.start(time);
-      noise.stop(time + 0.8);
+      noise.start(actualTime);
+      noise.stop(actualTime + 0.8 * lengthMultiplier);
       break;
     }
     case 'rim': {
       const osc = ctx.createOscillator();
       osc.type = 'square';
-      osc.frequency.setValueAtTime(800 * pitchMultiplier, time);
+      osc.frequency.setValueAtTime(800 * pitchMultiplier * finePitchMultiplier, actualTime);
       const oscGain = ctx.createGain();
-      oscGain.gain.setValueAtTime(volume * 0.5, time);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+      oscGain.gain.setValueAtTime(volume * 0.5, actualTime);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, actualTime + 0.05 * lengthMultiplier);
       osc.connect(oscGain);
       connectToChain(oscGain);
-      osc.start(time);
-      osc.stop(time + 0.05);
+      osc.start(actualTime);
+      osc.stop(actualTime + 0.05 * lengthMultiplier);
       break;
     }
     case 'perc': {
@@ -597,12 +608,12 @@ export function makeSound(
       filter.Q.value = 2;
       noise.connect(filter);
       const percGain = ctx.createGain();
-      percGain.gain.setValueAtTime(volume, time);
-      percGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+      percGain.gain.setValueAtTime(volume, actualTime);
+      percGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 0.1 * lengthMultiplier);
       filter.connect(percGain);
       connectToChain(percGain);
-      noise.start(time);
-      noise.stop(time + 0.1);
+      noise.start(actualTime);
+      noise.stop(actualTime + 0.1 * lengthMultiplier);
       break;
     }
     case 'piano': {
@@ -613,21 +624,21 @@ export function makeSound(
         { freq: fundamental * 3, gain: 0.15 },
       ];
       const pianoGain = ctx.createGain();
-      pianoGain.gain.setValueAtTime(0.0001, time);
-      pianoGain.gain.linearRampToValueAtTime(volume, time + 0.005);
-      pianoGain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+      pianoGain.gain.setValueAtTime(0.0001, actualTime);
+      pianoGain.gain.linearRampToValueAtTime(volume, actualTime + 0.005);
+      pianoGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 0.5 * lengthMultiplier);
       connectToChain(pianoGain);
 
       harmonics.forEach((h) => {
         const osc = ctx.createOscillator();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(h.freq, time);
+        osc.frequency.setValueAtTime(h.freq * finePitchMultiplier, actualTime);
         const hGain = ctx.createGain();
         hGain.gain.value = h.gain;
         osc.connect(hGain);
         hGain.connect(pianoGain);
-        osc.start(time);
-        osc.stop(time + 0.5);
+        osc.start(actualTime);
+        osc.stop(actualTime + 0.5 * lengthMultiplier);
       });
       break;
     }
@@ -643,10 +654,10 @@ export function makeSound(
       vFilter.frequency.value = 3500;
       vFilter.Q.value = 1;
       const vGain = ctx.createGain();
-      vGain.gain.setValueAtTime(0.0001, time);
-      vGain.gain.linearRampToValueAtTime(volume * 0.3, time + 0.08);
-      vGain.gain.linearRampToValueAtTime(volume * 0.2, time + 0.3);
-      vGain.gain.exponentialRampToValueAtTime(0.001, time + 0.8);
+      vGain.gain.setValueAtTime(0.0001, actualTime);
+      vGain.gain.linearRampToValueAtTime(volume * 0.3, actualTime + 0.08);
+      vGain.gain.linearRampToValueAtTime(volume * 0.2, actualTime + 0.3);
+      vGain.gain.exponentialRampToValueAtTime(0.001, actualTime + 0.8 * lengthMultiplier);
       vFilter.connect(vGain);
       connectToChain(vGain);
       const bowNoise = ctx.createBufferSource();
@@ -661,25 +672,25 @@ export function makeSound(
       bowFilter.connect(vGain);
       const vOsc = ctx.createOscillator();
       vOsc.type = 'sawtooth';
-      vOsc.frequency.setValueAtTime(fundamental, time);
+      vOsc.frequency.setValueAtTime(fundamental * finePitchMultiplier, actualTime);
       vibratoGain.connect(vOsc.frequency);
       vOsc.connect(vFilter);
-      vOsc.start(time); vOsc.stop(time + 0.8);
-      vibratoLFO.start(time); vibratoLFO.stop(time + 0.8);
-      bowNoise.start(time); bowNoise.stop(time + 0.1);
+      vOsc.start(actualTime); vOsc.stop(actualTime + 0.8 * lengthMultiplier);
+      vibratoLFO.start(actualTime); vibratoLFO.stop(actualTime + 0.8 * lengthMultiplier);
+      bowNoise.start(actualTime); bowNoise.stop(actualTime + 0.1 * lengthMultiplier);
       break;
     }
     case 'guitar': {
       const fundamental = 220 * pitchMultiplier;
       const gFilter = ctx.createBiquadFilter();
       gFilter.type = 'lowpass';
-      gFilter.frequency.setValueAtTime(4000, time);
-      gFilter.frequency.exponentialRampToValueAtTime(800, time + 0.4);
+      gFilter.frequency.setValueAtTime(4000 * finePitchMultiplier, actualTime);
+      gFilter.frequency.exponentialRampToValueAtTime(800, actualTime + 0.4);
       gFilter.Q.value = 2;
       const gGain = ctx.createGain();
-      gGain.gain.setValueAtTime(0.0001, time);
-      gGain.gain.linearRampToValueAtTime(volume * 0.4, time + 0.003);
-      gGain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
+      gGain.gain.setValueAtTime(0.0001, actualTime);
+      gGain.gain.linearRampToValueAtTime(volume * 0.4, actualTime + 0.003);
+      gGain.gain.exponentialRampToValueAtTime(0.001, actualTime + 0.5 * lengthMultiplier);
       gFilter.connect(gGain);
       connectToChain(gGain);
       const gHarmonics = [
@@ -691,11 +702,11 @@ export function makeSound(
       gHarmonics.forEach((h) => {
         const osc = ctx.createOscillator();
         osc.type = h.type;
-        osc.frequency.setValueAtTime(h.freq, time);
+        osc.frequency.setValueAtTime(h.freq * finePitchMultiplier, actualTime);
         const hGain = ctx.createGain();
         hGain.gain.value = h.gain;
         osc.connect(hGain); hGain.connect(gFilter);
-        osc.start(time); osc.stop(time + 0.5);
+        osc.start(actualTime); osc.stop(actualTime + 0.5 * lengthMultiplier);
       });
       break;
     }
@@ -706,10 +717,10 @@ export function makeSound(
       fFilter.frequency.value = fundamental * 2;
       fFilter.Q.value = 5;
       const fGain = ctx.createGain();
-      fGain.gain.setValueAtTime(0.0001, time);
-      fGain.gain.linearRampToValueAtTime(volume * 0.3, time + 0.15);
-      fGain.gain.linearRampToValueAtTime(volume * 0.25, time + 0.4);
-      fGain.gain.exponentialRampToValueAtTime(0.001, time + 0.7);
+      fGain.gain.setValueAtTime(0.0001, actualTime);
+      fGain.gain.linearRampToValueAtTime(volume * 0.3, actualTime + 0.15);
+      fGain.gain.linearRampToValueAtTime(volume * 0.25, actualTime + 0.4);
+      fGain.gain.exponentialRampToValueAtTime(0.001, actualTime + 0.7 * lengthMultiplier);
       fFilter.connect(fGain);
       connectToChain(fGain);
       const breathNoise = ctx.createBufferSource();
@@ -726,14 +737,14 @@ export function makeSound(
       breathNoise.connect(breathFilter); breathFilter.connect(breathGain); breathGain.connect(fGain);
       const fOsc = ctx.createOscillator();
       fOsc.type = 'sine';
-      fOsc.frequency.setValueAtTime(fundamental, time);
+      fOsc.frequency.setValueAtTime(fundamental * finePitchMultiplier, actualTime);
       const fLFO = ctx.createOscillator(); fLFO.frequency.value = 4;
       const fLFOGain = ctx.createGain(); fLFOGain.gain.value = 2;
       fLFO.connect(fLFOGain); fLFOGain.connect(fOsc.frequency);
       fOsc.connect(fFilter);
-      fOsc.start(time); fOsc.stop(time + 0.7);
-      fLFO.start(time); fLFO.stop(time + 0.7);
-      breathNoise.start(time); breathNoise.stop(time + 0.5);
+      fOsc.start(actualTime); fOsc.stop(actualTime + 0.7 * lengthMultiplier);
+      fLFO.start(actualTime); fLFO.stop(actualTime + 0.7 * lengthMultiplier);
+      breathNoise.start(actualTime); breathNoise.stop(actualTime + 0.5 * lengthMultiplier);
       break;
     }
     case 'sax': {
@@ -743,38 +754,38 @@ export function makeSound(
       sFilter.frequency.value = 1200;
       sFilter.Q.value = 3;
       const sGain = ctx.createGain();
-      sGain.gain.setValueAtTime(0.0001, time);
-      sGain.gain.linearRampToValueAtTime(volume * 0.35, time + 0.05);
-      sGain.gain.exponentialRampToValueAtTime(0.001, time + 0.6);
+      sGain.gain.setValueAtTime(0.0001, actualTime);
+      sGain.gain.linearRampToValueAtTime(volume * 0.35, actualTime + 0.05);
+      sGain.gain.exponentialRampToValueAtTime(0.001, actualTime + 0.6 * lengthMultiplier);
       sFilter.connect(sGain);
       connectToChain(sGain);
       const sOsc1 = ctx.createOscillator();
       sOsc1.type = 'sawtooth';
-      sOsc1.frequency.setValueAtTime(fundamental, time);
+      sOsc1.frequency.setValueAtTime(fundamental * finePitchMultiplier, actualTime);
       const sOsc2 = ctx.createOscillator();
       sOsc2.type = 'square';
-      sOsc2.frequency.setValueAtTime(fundamental * 0.5, time);
+      sOsc2.frequency.setValueAtTime(fundamental * 0.5 * finePitchMultiplier, actualTime);
       const sOsc2Gain = ctx.createGain(); sOsc2Gain.gain.value = 0.3;
       sOsc1.connect(sFilter); sOsc2.connect(sOsc2Gain); sOsc2Gain.connect(sFilter);
       const sLFO = ctx.createOscillator(); sLFO.frequency.value = 5;
       const sLFOGain = ctx.createGain(); sLFOGain.gain.value = 4;
       sLFO.connect(sLFOGain); sLFOGain.connect(sOsc1.frequency);
-      sOsc1.start(time); sOsc1.stop(time + 0.6);
-      sOsc2.start(time); sOsc2.stop(time + 0.6);
-      sLFO.start(time); sLFO.stop(time + 0.6);
+      sOsc1.start(actualTime); sOsc1.stop(actualTime + 0.6 * lengthMultiplier);
+      sOsc2.start(actualTime); sOsc2.stop(actualTime + 0.6 * lengthMultiplier);
+      sLFO.start(actualTime); sLFO.stop(actualTime + 0.6 * lengthMultiplier);
       break;
     }
     case 'drums': {
       const drKick = ctx.createOscillator();
       drKick.type = 'sine';
-      drKick.frequency.setValueAtTime(150 * pitchMultiplier, time);
-      drKick.frequency.exponentialRampToValueAtTime(30, time + 0.1);
+      drKick.frequency.setValueAtTime(150 * pitchMultiplier * finePitchMultiplier, actualTime);
+      drKick.frequency.exponentialRampToValueAtTime(30, actualTime + 0.1);
       const drKickGain = ctx.createGain();
-      drKickGain.gain.setValueAtTime(volume * 0.5, time);
-      drKickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+      drKickGain.gain.setValueAtTime(volume * 0.5, actualTime);
+      drKickGain.gain.exponentialRampToValueAtTime(0.001, actualTime + 0.15 * lengthMultiplier);
       drKick.connect(drKickGain);
       connectToChain(drKickGain);
-      drKick.start(time); drKick.stop(time + 0.15);
+      drKick.start(actualTime); drKick.stop(actualTime + 0.15 * lengthMultiplier);
       const drSnare = ctx.createBufferSource();
       const drSnareBuf = ctx.createBuffer(1, 4410, 44100);
       const drSnareData = drSnareBuf.getChannelData(0);
@@ -784,11 +795,11 @@ export function makeSound(
       drSnareFilter.type = 'highpass';
       drSnareFilter.frequency.value = 1500;
       const drSnareGain = ctx.createGain();
-      drSnareGain.gain.setValueAtTime(volume * 0.3, time + 0.01);
-      drSnareGain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+      drSnareGain.gain.setValueAtTime(volume * 0.3, actualTime + 0.01);
+      drSnareGain.gain.exponentialRampToValueAtTime(0.001, actualTime + 0.12 * lengthMultiplier);
       drSnare.connect(drSnareFilter); drSnareFilter.connect(drSnareGain);
       connectToChain(drSnareGain);
-      drSnare.start(time); drSnare.stop(time + 0.12);
+      drSnare.start(actualTime); drSnare.stop(actualTime + 0.12 * lengthMultiplier);
       const drHat = ctx.createOscillator();
       drHat.type = 'square';
       drHat.frequency.value = 8000;
@@ -796,11 +807,11 @@ export function makeSound(
       drHatFilter.type = 'highpass';
       drHatFilter.frequency.value = 8000;
       const drHatGain = ctx.createGain();
-      drHatGain.gain.setValueAtTime(volume * 0.15, time + 0.02);
-      drHatGain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+      drHatGain.gain.setValueAtTime(volume * 0.15, actualTime + 0.02);
+      drHatGain.gain.exponentialRampToValueAtTime(0.001, actualTime + 0.05 * lengthMultiplier);
       drHat.connect(drHatFilter); drHatFilter.connect(drHatGain);
       connectToChain(drHatGain);
-      drHat.start(time); drHat.stop(time + 0.05);
+      drHat.start(actualTime); drHat.stop(actualTime + 0.05 * lengthMultiplier);
       break;
     }
   }
@@ -1009,12 +1020,12 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
       const totalSteps = STEPS * barsRef.current;
       setCurrentStep(step);
       scrubPositionRef.current = step;
-      const time = ctx.currentTime;
+      const actualTime = ctx.currentTime;
       const swingOffset = step % 2 === 1 ? (swingRef.current * stepDuration * 0.25) / 1000 : 0;
       tracksRef.current.forEach((track) => {
         const audible = soloTrackRef.current ? track.id === soloTrackRef.current : !track.muted;
         if (audible && track.steps[step]) {
-          makeSound(ctx, analyserRef.current, track.type, time + swingOffset, track.volume * masterVolRef.current, {
+          makeSound(ctx, analyserRef.current, track.type, actualTime + swingOffset, track.volume * masterVolRef.current, {
             reverb: track.reverb,
             delay: track.delay,
             filter: track.filter,
@@ -1026,7 +1037,10 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
             eqMid: track.eqMid,
             eqHigh: track.eqHigh,
             pan: track.pan,
-          }, step);
+            offset: track.offset || 0,
+            length: track.length || 1.0,
+            finePitch: track.finePitch || 0,
+          }, bpm, i, step);
         }
       });
       stepRef.current = (step + 1) % totalSteps;
