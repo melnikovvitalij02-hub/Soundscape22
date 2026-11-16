@@ -653,7 +653,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       }
     } catch (err) {
       console.error('❌ Ошибка скачивания бита:', err); // <-- ЭТО ПОКАЖЕТ ТОЧНУЮ ПРИЧИНУ В КОНСОЛИ
-      setStatus(t('Не удалось скачать бит. Проверьте консоль (F12) для деталей.'));
+      setStatus(t('Не удалось скачать бит.'));
       setTimeout(() => setStatus(null), 4000);
     }
   };
