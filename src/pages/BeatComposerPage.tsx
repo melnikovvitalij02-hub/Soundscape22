@@ -23,6 +23,9 @@ type Track = {
   delay: number;
   filter: number;
   pitch: number;
+  offset: number;      // Смещение в шагах (0-15)
+  length: number;      // Длина звука (множитель длительности, 0.1 - 2.0)
+  finePitch: number;   // Тон без фильтра (в полутонах, -12 до 12)
   // Extended pro effects (premium)
   distortion: number;
   bitcrush: number;
@@ -31,9 +34,6 @@ type Track = {
   eqMid: number;
   eqHigh: number;
   pan: number;
-  offset: number;      // Смещение в шагах (0-15)
-  length: number;      // Длина звука (множитель длительности, 0.1 - 2.0)
-  finePitch: number;   // Тон без фильтра (в полутонах, -12 до 12)
 };
 
 const TRACK_PRESETS: Omit<Track, 'id' | 'steps' | 'muted'>[] = [
@@ -177,7 +177,7 @@ export function makeSound(
     // Вычисляем реальное время старта с учётом offset (сдвиг в шагах)
 
   const stepDuration = 60 / bpm / 4; // Длительность одного шага в секундах (для 16-х нот)
-  const actualTime = time + (effects.offset || 0) * stepDuration;
+  const actualTime = time + (effects.offset / 16 || 0) * stepDuration;
   
   // Множитель длины звука
   const lengthMultiplier = effects.length || 1.0;
