@@ -18,6 +18,9 @@ export type SavedTrack = {
   eqLow?: number;
   eqMid?: number;
   eqHigh?: number;
+  offset?: number;
+  length?: number;
+  finePitch?: number;
 };
 
 export function trackEffects(track: Partial<SavedTrack> = {}): ExtendedEffects {
@@ -33,6 +36,9 @@ export function trackEffects(track: Partial<SavedTrack> = {}): ExtendedEffects {
     eqMid: track.eqMid ?? 0,
     eqHigh: track.eqHigh ?? 0,
     pan: track.pan ?? 0,
+    offset: track.offset ?? 0,
+    length: track.length ?? 1,
+    finePitch: track.finePitch ?? 0,
   };
 }
 
