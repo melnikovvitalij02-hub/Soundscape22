@@ -93,7 +93,7 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
         download_access: downloadAccess,
         comment_access: commentAccess,
         price_gem: downloadAccess === 'paid' ? priceGem : 0,
-        price_coin: downloadAccess === 'paid' ? priceCoin : 0,
+        priceCoin : 0,
         is_hot: profile.is_premium ? isHot : false,
         is_public: true,
       }).select('id').maybeSingle();
@@ -153,13 +153,11 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
               <option value="nobody">{t('Никто')}</option>
             </select></label>
           {downloadAccess === 'paid' && (
-            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl border border-theme-warning/30 bg-theme-warning/10">
-              <label className="grid gap-1.5"><span className="text-xs font-medium text-theme-warning">Gem (мин. 100)</span>
+            <div className="p-3 rounded-xl border border-theme-warning/30 bg-theme-warning/10">
+              <label className="grid gap-1.5"><span className="text-xs font-medium text-theme-warning">Цена в Gem (мин. 100)</span>
                 <input type="number" min={100} value={priceGem} disabled={submitting} onChange={(e) => setPriceGem(Math.max(100, Number(e.target.value) || 100))} className={inputCls} /></label>
-              <label className="grid gap-1.5"><span className="text-xs font-medium text-theme-warning">Coin (мин. 1000)</span>
-                <input type="number" min={1000} value={priceCoin} disabled={submitting} onChange={(e) => setPriceCoin(Math.max(1000, Number(e.target.value) || 1000))} className={inputCls} /></label>
             </div>
-          )}
+            )}
           <label className="grid gap-1.5"><span className="text-sm font-medium text-theme-text">{t('Кто может комментировать')}</span>
             <select value={commentAccess} disabled={submitting} onChange={(e) => setCommentAccess(e.target.value as any)} className={inputCls}>
               <option value="all">{t('Все')}</option>
