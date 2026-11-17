@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { makeSound, type TrackType } from '@/pages/BeatComposerPage';
 import { STEPS, buildPattern, trackEffects, type SavedTrack } from '@/lib/beatPlayback';
-import { downloadAudioFile, renderSequencerWav, saveBlob, safeFileName } from '@/lib/beatDownload';
+import { downloadAudioFile, renderSequencerMp3, saveBlob, safeFileName } from '@/lib/beatDownload';
 
 type Beat = {
   id: string;
@@ -52,6 +52,12 @@ type Beat = {
     username: string;
     avatar_url: string | null;
   } | null;
+  description?: string | null;
+  download_access?: string | null;
+  comment_access?: string | null;
+  price_gem?: number | null;
+  price_coin?: number | null;
+  is_hot?: boolean | null;
 };
 
 type BeatComment = {
@@ -117,6 +123,26 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
   const audioChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<number | null>(null);
   const recorderStartRef = useRef<number>(0);
+
+  const [editingBeat, setEditingBeat] = useState<Beat | null>(null);
+  const [editForm, setEditForm] = useState({ description: '', download_access: 'premium', comment_access: 'all', price_gem: 100, price_coin: 1000, is_hot: false });
+
+  const saveBeatSettings = async () => {
+    if (!editingBeat || !profile) return;
+    const { error } = await supabase.from('beats').update({
+      description: editForm.description.trim() || null,
+      download_access: editForm.download_access,
+      comment_access: editForm.comment_access,
+      price_gem: editForm.download_access === 'paid' ? editForm.price_gem : 0,
+      price_coin: editForm.download_access === 'paid' ? editForm.price_coin : 0,
+      is_hot: profile.is_premium ? editForm.is_hot : false,
+  }).eq('id', editingBeat.id).eq('user_id', profile.id);
+    if (!error) {
+      setBeats(prev => prev.map(b => b.id === editingBeat.id ? { ...b, ...editForm } : b));
+      setEditingBeat(null);
+      setStatus(t('Настройки обновлены')); setTimeout(() => setStatus(null), 2000);
+    }
+  };
 
   const getCtx = useCallback(() => {
     if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
@@ -185,6 +211,16 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
         };
         tick();
         intervalRef.current = window.setInterval(tick, stepDuration);
+        // монетизация: начислить автору один раз за уникальное прослушивание
+        if (profile && !isGuest) {
+          const durSec = totalSteps * (60 / effectiveBpm / 4);
+          window.setTimeout(() => {
+            if (playingId === beat.id) {
+              supabase.rpc('record_beat_listen_and_reward', { p_beat_id: beat.id, p_duration_sec: durSec })
+                .then(({ error }) => error && console.error('reward rpc', error));
+            }
+          }, 30000);
+        }
       } else {
         const pattern = buildPattern(beat.genre);
         stepRef.current = 0;
@@ -232,7 +268,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
 
   const handleBuyBeat = async (beat: Beat) => {
     if (!profile || isGuest) return;
-    if ((beat.download_price ?? 0) <= 0) return;
+    //if ((beat.download_price ?? 0) <= 0) return;
     setBuyingBeatId(beat.id);
     const { error } = await supabase.rpc('purchase_beat', { p_beat_id: beat.id });
     if (error) {
@@ -252,7 +288,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     const to = from + PAGE_SIZE - 1;
     const { data, error } = await supabase
       .from('beats')
-      .select('id, user_id, title, genre, bpm, audio_url, cover_url, play_count, created_at, data, is_public, download_price, is_free, description, download_access, comment_access')
+      .select('id, user_id, title, genre, bpm, audio_url, cover_url, play_count, created_at, data, is_public, description, download_access, comment_access, price_gem, price_coin, is_hot')
       .eq('is_public', true)
       .order('created_at', { ascending: false })
       .range(from, to);
@@ -611,24 +647,12 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     setMenuOpenBeatId(null);
     const isOwner = profile?.id === beat.user_id;
     const owned = ownedBeats.has(beat.id);
-    
-    // Проверки прав доступа
+    const isPaid = (beat.price_gem ?? 0) > 0 || (beat.price_coin ?? 0) > 0;
     if (!isOwner && !owned) {
-      if (beat.download_access === 'nobody') {
-        setStatus(t('Автор запретил скачивание этого бита'));
-        setTimeout(() => setStatus(null), 3000);
-        return;
-      }
-      if ((beat.download_price ?? 0) > 0 && !owned) {
-        setStatus(t('Сначала купите этот бит, затем скачивайте'));
-        setTimeout(() => setStatus(null), 3000);
-        return;
-      }
-      if (profile?.is_premium !== true) {
-        setStatus(t('Скачивание треков доступно только подписчикам Premium'));
-        setTimeout(() => setStatus(null), 3000);
-        return;
-      }
+      if (beat.download_access === 'nobody') { setStatus(t('Автор запретил     скачивание')); setTimeout(() => setStatus(null), 3000); return; }
+      if (isPaid) { setStatus(t('Сначала купите этот бит')); setTimeout(()     => setStatus(null), 3000); return; }
+      if (profile?.is_premium !== true) { setStatus(t('Скачивание — только     для Premium')); setTimeout(() => setStatus(null), 3000); return; }
+    }
     }
 
     const tracks = beat.data?.tracks;
@@ -639,11 +663,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
         setStatus(null);
       } else if (tracks && tracks.length > 0) {
         setStatus(t('Рендеринг бита в MP3 (это может занять несколько секунд)...'));
-        const mp3 = await renderSequencerMp3(
-          tracks, 
-          beat.data?.bpm || beat.bpm || 120, 
-          beat.data?.bars || 1
-        );
+        const mp3 = await renderSequencerMp3(tracks, beat.data?.bpm ||             beat.bpm || 120, beat.data?.bars || 1);
         saveBlob(mp3, `${safeFileName(beat.title)}.mp3`);
         setStatus(t('Скачивание началось!'));
         setTimeout(() => setStatus(null), 2500);
@@ -855,6 +875,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                               >
                                 <Download className="w-4 h-4" /> {t('Скачать')}
                               </button>
+                              <button onClick={() => { setEditingBeat(beat); setEditForm({ description: beat.description || '', download_access: beat.download_access || 'premium', comment_access: beat.comment_access || 'all', price_gem: beat.price_gem || 100, price_coin: beat.price_coin || 1000, is_hot: beat.is_hot || false }); setMenuOpenBeatId(null); }} className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"><Sliders className="w-4 h-4" /> {t('Настройки доступа')}</button>
                               <div className="border-t border-theme-border my-1" />
                               <button
                                 onClick={() => deleteBeat(beat)}
@@ -911,31 +932,21 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                       <GitFork className="w-4 h-4" />
                       {t('Ремикс')}
                     </button>
-                    {beat.is_free ? (
-                      <button
-                        onClick={() => downloadBeat(beat)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-success/15 text-theme-success hover:opacity-80 transition-opacity"
-                      >
-                        <Download className="w-4 h-4" /> {t('Скачать')}
-                      </button>
-                    ) : !beat.is_free && (beat.download_price ?? 0) > 0 ? (
+                    {isPaid ? (
                       ownedBeats.has(beat.id) ? (
-                        <button
-                          onClick={() => downloadBeat(beat)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-success/15 text-theme-success hover:opacity-80 transition-opacity"
-                        >
+                        <button onClick={() => downloadBeat(beat)}                                 className="...bg-theme-success/15 text-theme-                              success...">
                           <Download className="w-4 h-4" /> {t('Скачать')}
                         </button>
                       ) : (
-                        <button
-                          onClick={() => handleBuyBeat(beat)}
-                          disabled={buyingBeatId === beat.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-warning/15 text-theme-warning hover:opacity-80 transition-opacity disabled:opacity-50"
-                        >
+                        <button onClick={() => handleBuyBeat(beat)} disabled={buyingBeatId === beat.id} className="...bg-theme-warning/15 text-theme-warning...">
                           {buyingBeatId === beat.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                          {t('Купить за')} {beat.download_price} {t('монет')}
+                          {t('Купить за')} {beat.price_gem} Gem / {beat.price_coin} Coin
                         </button>
                       )
+                    ) : beat.download_access !== 'nobody' ? (
+                      <button onClick={() => downloadBeat(beat)} className="...bg-theme-success/15 text-theme-success...">
+                        <Download className="w-4 h-4" /> {t('Скачать')}
+                      </button>
                     ) : null}
                     {isPlaying && (
                       <button
