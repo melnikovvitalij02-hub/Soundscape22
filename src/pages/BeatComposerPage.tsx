@@ -1351,33 +1351,6 @@ const addTrack = (presetType?: TrackType) => {
   };
 
 
-    const hasSteps = tracks.some((t) => t.steps.some((s) => s));
-    if (!hasSteps) {
-      setPublishStatus(t('Добавьте хотя бы один шаг!'));
-      setTimeout(() => setPublishStatus(null), 2500);
-      return;
-    }
-    setPublishStatus(t('Публикация...'));
-    const { error } = await supabase.from('beats').insert({
-      user_id: profile.id,
-      title: projectName,
-      genre,
-      bpm,
-      play_count: 0,
-      data: { tracks, bpm, genre, bars },
-    });
-    if (error) {
-      setPublishStatus(t('Ошибка:') + ' ' + error.message);
-      setTimeout(() => setPublishStatus(null), 3500);
-      return;
-    }
-    setPublishStatus(t('Опубликован в ленту!'));
-    await addXp(30);
-    await addCoins(15);
-    checkAchievements();
-    setTimeout(() => setPublishStatus(null), 2500);
-  };
-
   const loadProject = async (projectId: string) => {
     const { data, error } = await supabase
       .from('projects')
