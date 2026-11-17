@@ -1331,7 +1331,7 @@ const addTrack = (presetType?: TrackType) => {
     const hasSteps = tracks.some((t) => t.steps.some((s) => s));
     try {
       const { error } = await supabase.from('projects').insert({
-        user_id: session.user.id,
+        user_id: profile.id,
         name: projectName,
         data: { tracks, bpm, genre, bars },
         genre,
@@ -1359,7 +1359,7 @@ const addTrack = (presetType?: TrackType) => {
     }
     setPublishStatus(t('Публикация...'));
     const { error } = await supabase.from('beats').insert({
-      user_id: session.user.id,
+      user_id: profile.id,
       title: projectName,
       genre,
       bpm,
