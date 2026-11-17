@@ -39,6 +39,7 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
   const [isHot, setIsHot] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cooldownError, setCooldownError] = useState<string | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !submitting) onClose(); };
@@ -61,6 +62,26 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
 
   const handleSubmit = async () => {
     if (!profile || !title.trim()) return;
+    
+  // Проверка кулдауна
+    setCooldownError(null);
+    const { data: canPublish, error: cooldownErr } = await supabase.rpc('check_publish_cooldown');
+  
+    if (cooldownErr) {
+      console.error('Cooldown check error:', cooldownErr);
+      setError(t('Ошибка проверки ограничений. Попробуйте позже.'));
+      return;
+    }
+  
+    if (!canPublish) {
+      const isPremiumUser = profile.is_premium === true;
+      const hours = isPremiumUser ? 2 : 6;
+      setCooldownError(
+        t(`Вы можете публиковать треки не чаще, чем раз в ${hours} часов${isPremiumUser ? ' (Premium)' : ''}. Купите буст в магазине, чтобы снять ограничение.`)
+      );
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
@@ -176,6 +197,12 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
           <div className="mt-4 rounded-xl border border-theme-warning/30 bg-theme-warning/10 p-4 flex items-start gap-3">
             <Lock className="w-5 h-5 text-theme-warning shrink-0" />
             <p className="text-sm text-theme-text">{t('Публикация треков доступна только зарегистрированным пользователям. Войдите или создайте аккаунт.')}</p>
+          </div>
+        )}
+        {cooldownError && (
+          <div className="mt-4 rounded-xl border border-theme-warning/30 bg-theme-warning/10 p-4 flex items-start gap-3">
+            <Lock className="w-5 h-5 text-theme-warning shrink-0" />
+            <p className="text-sm text-theme-text">{cooldownError}</p>
           </div>
         )}
         {error && <p className="text-sm text-theme-danger mt-4" role="alert">{error}</p>}
