@@ -28,7 +28,6 @@ export async function downloadAudioFile(url: string, title: string) {
   saveBlob(blob, `${safeFileName(title)}.${extension}`);
 }
 
-/** Общий офлайн-рендер в AudioBuffer (используется и для WAV, и для MP3). */
 async function renderOffline(tracks: SavedTrack[], bpm: number, bars: number): Promise<AudioBuffer> {
   const audible = tracks.filter((t) => !t.muted);
   const totalSteps = STEPS * bars;
@@ -39,7 +38,6 @@ async function renderOffline(tracks: SavedTrack[], bpm: number, bars: number): P
   for (let step = 0; step < totalSteps; step++) {
     const time = step * stepSeconds;
     audible.forEach((track) => {
-      // защита от выхода за границы массива при bars > 1
       if (track.steps && track.steps[step] === true) {
         makeSound(
           offline as unknown as AudioContext,
@@ -48,7 +46,7 @@ async function renderOffline(tracks: SavedTrack[], bpm: number, bars: number): P
           time,
           track.volume * 0.7,
           trackEffects(track),
-          bpm,            // ← ОБЯЗАТЕЛЬНО передаём bpm (7-й аргумент)
+          bpm,
         );
       }
     });
