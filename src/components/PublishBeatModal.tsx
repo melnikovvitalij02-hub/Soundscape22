@@ -25,7 +25,7 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
   const { profile } = useAuth();
   const { t } = useLocale();
   const isComposerMode = Boolean(composerData);
-  const premiumBlocked = profile?.is_premium !== true;
+  const isGuest = !profile;
 
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState(composerData?.projectName || '');
@@ -56,7 +56,7 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
   };
 
   const canSubmit =
-    !submitting && !premiumBlocked && Boolean(profile) && title.trim().length > 0 &&
+    !submitting && !isGuest && title.trim().length > 0 &&
     (isComposerMode ? true : Boolean(file));
 
   const handleSubmit = async () => {
@@ -174,10 +174,10 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
           )}
         </div>
 
-        {premiumBlocked && (
+        {isGuest && (
           <div className="mt-4 rounded-xl border border-theme-warning/30 bg-theme-warning/10 p-4 flex items-start gap-3">
             <Lock className="w-5 h-5 text-theme-warning shrink-0" />
-            <p className="text-sm text-theme-text">{t('Публикация доступна только Premium-пользователям.')}</p>
+            <p className="text-sm text-theme-text">{t('Публикация треков доступна только зарегистрированным пользователям. Войдите или создайте аккаунт.')}</p>
           </div>
         )}
         {error && <p className="text-sm text-theme-danger mt-4" role="alert">{error}</p>}
