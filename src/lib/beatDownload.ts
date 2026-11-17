@@ -59,7 +59,7 @@ export async function renderSequencerMp3(tracks: SavedTrack[], bpm: number, bars
           time,
           track.volume * 0.7,
           trackEffects(track) as ExtendedEffects,
-          step
+          bpm, step
         );
       }
     });
