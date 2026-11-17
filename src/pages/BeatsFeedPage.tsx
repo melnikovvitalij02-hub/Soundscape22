@@ -269,7 +269,6 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
 
   const handleBuyBeat = async (beat: Beat) => {
     if (!profile || isGuest) return;
-    //if ((beat.download_price ?? 0) <= 0) return;
     setBuyingBeatId(beat.id);
     const { error } = await supabase.rpc('purchase_beat', { p_beat_id: beat.id });
     if (error) {
@@ -940,7 +939,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                       ) : (
                         <button onClick={() => handleBuyBeat(beat)} disabled={buyingBeatId === beat.id} className="...bg-theme-warning/15 text-theme-warning...">
                           {buyingBeatId === beat.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-                          {t('Купить за')} {beat.price_gem} Gem / {beat.price_coin} Coin
+                          {t('Купить за')} {beat.price_gem} Gem
                         </button>
                       )
                     ) : beat.download_access !== 'nobody' ? (
