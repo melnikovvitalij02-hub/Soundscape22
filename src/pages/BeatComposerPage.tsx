@@ -8,6 +8,7 @@ import {
   Activity, AudioWaveform,
 } from 'lucide-react';
 import { useLocale } from '@/context/LocaleContext';
+import PublishBeatModal from '@/components/PublishBeatModal';
 
 export type TrackType = 'kick' | 'snare' | 'hihat' | 'openhat' | 'clap' | 'tom' | 'bass' | 'synth' | 'pad' | 'crash' | 'rim' | 'perc' | 'piano' | 'violin' | 'guitar' | 'flute' | 'sax' | 'drums';
 
@@ -39,10 +40,10 @@ type Track = {
 //const [showPublishModal, setShowPublishModal] = useState(false);
 //const [pubDescription, setPubDescription] = useState('');
 //const [pubDownloadAccess, setPubDownloadAccess] = useState<'premium' | 'paid' | 'nobody'>('premium');
-const [pubCommentAccess, setPubCommentAccess] = useState<'all' | 'premium' | 'nobody'>('all');
-const [pubPriceGem, setPubPriceGem] = useState(100);
-const [pubPriceCoin, setPubPriceCoin] = useState(1000);
-const [pubIsHot, setPubIsHot] = useState(false);
+//const [pubCommentAccess, setPubCommentAccess] = useState<'all' | 'premium' | 'nobody'>('all');
+//const [pubPriceGem, setPubPriceGem] = useState(100);
+//const [pubPriceCoin, setPubPriceCoin] = useState(1000);
+//const [pubIsHot, setPubIsHot] = useState(false);
 //const [publishStatus, setPublishStatus] = useState<string | null>(null);
 const TRACK_PRESETS: Omit<Track, 'id' | 'steps' | 'muted'>[] = [
   { name: 'Кик', type: 'kick', volume: 0.8, color: 'bg-theme-primary', reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0},
@@ -939,10 +940,7 @@ function Visualizer({ analyserRef }: { analyserRef: React.RefObject<AnalyserNode
 export default function BeatComposerPage({ isActive = true }: { isActive?: boolean }) {
   const { profile, session, isGuest, addXp, addCoins, checkAchievements } = useAuth();
   const isPremium = profile?.is_premium === true;
-  const [showPublishModal, setShowPublishModal] = useState(false);
-  const [pubDescription, setPubDescription] = useState('');
-  const [pubDownloadAccess, setPubDownloadAccess] = useState<'premium' | 'paid' | 'nobody'>('premium');
-  const [publishStatus, setPublishStatus] = useState<string | null>(null);
+
 
   const [tracks, setTracks] = useState<Track[]>(() =>
     TRACK_PRESETS.slice(0, 4).map(createTrack)
@@ -970,6 +968,15 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
   const [bars, setBars] = useState(1); // 1–256 bars, each bar = 16 steps
   const [trackSearch, setTrackSearch] = useState('');
   const [editingBpm, setEditingBpm] = useState<number | null>(null);
+
+  const [pubCommentAccess, setPubCommentAccess] = useState<'all' | 'premium' | 'nobody'>('all');
+  const [pubPriceGem, setPubPriceGem] = useState(100);
+  const [pubPriceCoin, setPubPriceCoin] = useState(1000);
+  const [pubIsHot, setPubIsHot] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [pubDescription, setPubDescription] = useState('');
+  const [pubDownloadAccess, setPubDownloadAccess] = useState<'premium' | 'paid' | 'nobody'>('premium');
+  const [publishStatus, setPublishStatus] = useState<string | null>(null);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -1571,7 +1578,7 @@ const addTrack = (presetType?: TrackType) => {
             <Save className="w-4 h-4" /> {t('Сохранить')}
           </button>
           <button
-            onClick={publishToFeed}
+            onClick={() => setShowPublishModal(true)}
             className="px-4 py-2 bg-gradient-to-r from-theme-accent to-theme-primary text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all flex items-center gap-2"
           >
             <Upload className="w-4 h-4" /> {t('В ленту')}
@@ -2329,6 +2336,17 @@ const addTrack = (presetType?: TrackType) => {
           )}
         </div>
       </div>
+      {showPublishModal && (
+        <PublishBeatModal
+          onClose={() => setShowPublishModal(false)}
+          onPublished={(beatId) => {
+            setShowPublishModal(false);
+            setPublishStatus(t('Бит опубликован!'));
+            setTimeout(() => setPublishStatus(null), 3000);
+          }}
+          composerData={{ tracks, bpm, bars, genre, projectName }}
+        />
+      )}
     </div>
   );
 }
