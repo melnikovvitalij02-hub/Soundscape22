@@ -968,7 +968,6 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [pubDescription, setPubDescription] = useState('');
   const [pubDownloadAccess, setPubDownloadAccess] = useState<'premium' | 'paid' | 'nobody'>('premium');
-  const [publishStatus, setPublishStatus] = useState<string | null>(null);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
