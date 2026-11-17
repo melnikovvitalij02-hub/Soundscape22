@@ -649,9 +649,9 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     const owned = ownedBeats.has(beat.id);
     const isPaid = (beat.price_gem ?? 0) > 0 || (beat.price_coin ?? 0) > 0;
     if (!isOwner && !owned) {
-      if (beat.download_access === 'nobody') { setStatus(t('Автор запретил     скачивание')); setTimeout(() => setStatus(null), 3000); return; }
-      if (isPaid) { setStatus(t('Сначала купите этот бит')); setTimeout(()     => setStatus(null), 3000); return; }
-      if (profile?.is_premium !== true) { setStatus(t('Скачивание — только     для Premium')); setTimeout(() => setStatus(null), 3000); return; }
+      if (beat.download_access === 'nobody') { setStatus(t('Автор запретил скачивание')); setTimeout(() => setStatus(null), 3000); return; }
+      if (isPaid) { setStatus(t('Сначала купите этот бит')); setTimeout(() => setStatus(null), 3000); return; }
+      if (profile?.is_premium !== true) { setStatus(t('Скачивание — только для Premium')); setTimeout(() => setStatus(null), 3000); return; }
     }
 
     const tracks = beat.data?.tracks;
@@ -662,7 +662,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
         setStatus(null);
       } else if (tracks && tracks.length > 0) {
         setStatus(t('Рендеринг бита в MP3 (это может занять несколько секунд)...'));
-        const mp3 = await renderSequencerMp3(tracks, beat.data?.bpm ||             beat.bpm || 120, beat.data?.bars || 1);
+        const mp3 = await renderSequencerMp3(tracks, beat.data?.bpm || beat.bpm || 120, beat.data?.bars || 1);
         saveBlob(mp3, `${safeFileName(beat.title)}.mp3`);
         setStatus(t('Скачивание началось!'));
         setTimeout(() => setStatus(null), 2500);
@@ -674,7 +674,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       console.error('❌ Ошибка скачивания бита:', err); // <-- ЭТО ПОКАЖЕТ ТОЧНУЮ ПРИЧИНУ В КОНСОЛИ
       setStatus(t('Не удалось скачать бит.'));
       setTimeout(() => setStatus(null), 4000);
-    }
+      }
     };
 
   const coverFor = (b: Beat) => b.cover_url || '/cover-igotu.webp';
