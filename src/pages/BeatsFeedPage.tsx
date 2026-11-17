@@ -178,7 +178,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
           const time = ctx.currentTime;
           audibleTracks.forEach((track) => {
             if (track.steps[step]) {
-              makeSound(ctx, null, track.type, time, track.volume * 0.7, trackEffects(track));
+              makeSound(ctx, null, track.type, time, track.volume * 0.7, trackEffects(track), effectiveBpm);
             }
           });
           stepRef.current = (step + 1) % totalSteps;
@@ -197,7 +197,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
           pattern.forEach((track) => {
             const hit = track[step];
             if (typeof hit === 'string') {
-              makeSound(ctx, null, hit as TrackType, time, 0.5, trackEffects());
+              makeSound(ctx, null, hit as TrackType, time, 0.5, trackEffects(), beat.bpm || 120);
             }
           });
           stepRef.current = (step + 1) % 16;
