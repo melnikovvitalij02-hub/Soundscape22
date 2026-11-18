@@ -574,26 +574,44 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
   };
 
   const support = async (beat: Beat) => {
-    if (!profile || isGuest) return;
-    if ((profile.coins || 0) < 100) {
-      setStatus(t('Недостаточно монет для поддержки'));
-      return;
-    }
-    const msg = (supportMsg[beat.id] || '').trim();
+  if (!profile || isGuest) return;
+  if (isOwnBeat) return;
+  
+  const amount = supportAmount;
+  const currency = supportCurrency;
+  const balanceField = currency === 'gem' ? 'donate_coins' : 'coins';
+  const currentBalance = currency === 'gem' ? (profile.donate_coins ?? 0) : (profile.coins ?? 0);
+  
+  if (currentBalance < amount) {
+    setStatus(t(`Недостаточно ${currency === 'gem' ? 'Gem' : 'монет'}`));
+    return;
+  }
+
+  const msg = (supportMsg[beat.id] || '').trim();
     const { error } = await supabase.from('support_donations').insert({
       supporter_id: profile.id,
       creator_id: beat.user_id,
-      amount: 100,
+      amount: amount,
+      currency: currency,
       message: msg,
     });
+
     if (error) {
       setStatus(t('Ошибка при поддержке'));
       return;
     }
-    await addCoins(-100);
+
+    // Списываем баланс
+    await supabase.from('profiles')
+      .update({ [balanceField]: currentBalance - amount })
+      .eq('id', profile.id);
+
     await refreshProfile();
+    setSupportOpenFor(null);
+    setSupportAmount(100);
+    setSupportCurrency('coin');
     setSupportMsg((prev) => ({ ...prev, [beat.id]: '' }));
-    setStatus(t('Поддержка отправлена! Автор получил 100 монет'));
+    setStatus(t(`Поддержка ${amount} ${currency === 'gem' ? 'Gem' : 'монет'} отправлена!`));
     setTimeout(() => setStatus(null), 2500);
   };
 
