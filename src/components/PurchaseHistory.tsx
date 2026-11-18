@@ -60,6 +60,13 @@ export default function PurchaseHistory() {
         .order('created_at', { ascending: false })
         .limit(50);
       setRows((data ?? []) as PaymentRow[]);
+      const channel = supabase
+        .channel('payments-' + profile.id)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${profile.id}` }, () => {
+          refetch();
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
       setLoading(false);
     })();
   }, [profile, isGuest]);
