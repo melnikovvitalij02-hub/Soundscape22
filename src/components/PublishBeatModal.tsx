@@ -115,7 +115,7 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
         comment_access: commentAccess,
         price_gem: downloadAccess === 'paid' ? priceGem : 0,
         price_coin : 0,
-        is_hot: profile.is_premium ? isHot : false,
+        is_hot: isComposerMode && profile.is_premium ? isHot : false,
         is_public: true,
       }).select('id').maybeSingle();
 
@@ -177,10 +177,10 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
               <option value="premium">{t('Только Premium')}</option>
               <option value="nobody">{t('Никто')}</option>
             </select></label>
-          {profile?.is_premium && (
+          {profile?.is_premium && isComposerMode && (
             <label className="flex items-center gap-3 p-3 rounded-xl border border-theme-primary/30 bg-theme-primary/10 cursor-pointer">
               <input type="checkbox" checked={isHot} disabled={submitting} onChange={(e) => setIsHot(e.target.checked)} className="w-4 h-4 accent-theme-primary" />
-              <span className="text-sm font-medium text-theme-primary flex items-center gap-1"><Flame className="w-4 h-4" /> {t('Горячий трек')}</span>
+              <span className="text-sm font-medium text-theme-primary flex items-center justify-center gap-1"><Flame className="w-4 h-4" /> {t('Горячий трек')}</span>
             </label>
           )}
         </div>
