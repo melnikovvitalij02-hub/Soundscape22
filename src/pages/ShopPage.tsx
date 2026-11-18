@@ -46,6 +46,9 @@ function EmptyState({ icon: Icon, text }: { icon: typeof Coins; text: string }) 
   return (<div className="bg-theme-surface/50 border border-theme-border rounded-2xl p-8 text-center glass-surface shop-card"><Icon className="w-12 h-12 text-theme-muted mx-auto mb-3" /><p className="text-theme-muted">{text}</p></div>);
 }
 
+function t_free(): string {
+  return 'Бесплатно';
+}
 // Dual-currency price row: Gem (donate) first, Coin below.
 function DualPrice({ gems, coins }: { gems: number; coins: number }) {
   if (gems === 0 && coins === 0) {
@@ -61,10 +64,6 @@ function DualPrice({ gems, coins }: { gems: number; coins: number }) {
       <div className="flex items-center gap-1.5"><span className="coin coin-sm" /><span className="text-theme-text font-bold">{coins} Coin</span></div>
     </div>
   );
-}
-
-function t_free(): string {
-  return 'Бесплатно';
 }
 
 function OwnedBadge({ label, icon: Icon = Check }: { label: string; icon?: typeof Coins }) {
