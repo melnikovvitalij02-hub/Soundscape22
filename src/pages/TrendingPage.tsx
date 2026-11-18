@@ -159,24 +159,6 @@ export default function TrendingPage() {
             </p>
           </div>
         </div>
-        {canUpload && (
-          <div className="flex flex-col sm:flex-row gap-2">
-            <button
-              type="button"
-              onClick={() => setUploadOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-theme-border bg-theme-surface px-4 py-2.5 text-sm font-medium text-theme-text transition-all hover:border-theme-primary hover:-translate-y-0.5"
-            >
-              <Upload className="w-4 h-4" /> {t('Загрузить MP3')}
-            </button>
-            <button
-              type="button"
-              onClick={() => openBoost(null)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-theme-primary px-4 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:bg-theme-primary-hover hover:-translate-y-0.5"
-            >
-              <Zap className="w-4 h-4" /> {t('Продвинуть трек')}
-            </button>
-          </div>
-        )}
       </header>
 
       {!canUpload && (profile && !isGuest) && (
