@@ -661,6 +661,21 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       if (isPaid) { setStatus(t('Сначала купите этот бит')); setTimeout(()     => setStatus(null), 3000); return; }
       if (profile?.is_premium !== true) { setStatus(t('Скачивание — только для Premium')); setTimeout(() => setStatus(null), 3000); return; }
     }
+  const copyBeatToComposer = (beat: Beat) => {
+    if (!beat.data) {
+      setStatus(t('У этого бита нет данных для копирования'));
+      setTimeout(() => setStatus(null), 2500);
+      return;
+    }
+    localStorage.setItem('copied_beat_project', JSON.stringify({
+      tracks: beat.data.tracks,
+      bpm: beat.data.bpm || beat.bpm,
+      bars: beat.data.bars || 1,
+      genre: beat.genre,
+      name: `${beat.title} (копия)`,
+    }));
+    setPage('beat');
+  };
 
     const tracks = beat.data?.tracks;
     try {
@@ -1050,7 +1065,12 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       {/* Copy modal */}
       <div
         className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <button onClick={() => copyBeatToComposer(beat)} ...><Copy ... /> {t('Скопировать проект')}</button>
+        <button
+          onClick={() => { copyBeatToComposer(beat); setMenuOpenBeatId(null); }}
+          className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
+>
+          <Copy className="w-4 h-4" /> {t('Скопировать проект')}
+        </button>
       </div>
 
       {/* Rename modal */}
