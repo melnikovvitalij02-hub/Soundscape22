@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import CoinPurchase from '@/components/CoinPurchase';
 import { useLocale } from '@/context/LocaleContext';
-import GemWithdrawal from '@/components/GemWithdrawal';
+//import GemWithdrawal from '@/components/GemWithdrawal';
 import PurchaseHistory from '@/components/PurchaseHistory';
 
 type SamplePack = { id: string; name: string; producer_name: string; genre: string; price_gems: number; price_coins: number; description: string; track_count: number; cover_url: string | null; is_exclusive: boolean };
@@ -318,7 +318,6 @@ export default function ShopPage() {
             </div>
           </div>
         </div>
-        <GemWithdrawal />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {boostItems.map((item) => {
             const isDoubleXp = item.type === 'double_xp';
