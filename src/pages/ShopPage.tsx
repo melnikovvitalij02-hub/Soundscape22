@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import CoinPurchase from '@/components/CoinPurchase';
 import { useLocale } from '@/context/LocaleContext';
-//import GemWithdrawal from '@/components/GemWithdrawal';
+import GemWithdrawal from '@/components/GemWithdrawal';
 import PurchaseHistory from '@/components/PurchaseHistory';
 import StickerChest from '@/components/StickerChest';
 
