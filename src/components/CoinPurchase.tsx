@@ -93,9 +93,8 @@ export default function CoinPurchase() {
         <p className="text-sm text-theme-primary-text">
           Донат-монеты покупаются за деньги и тратятся на звуковые наборы (сэмпл-паки). Игровые монеты зарабатываются в играх и тратятся на остальные покупки в магазине.
         </p>
-        <GemWithdrawal />
       </div>
-
+      <GemWithdrawal />
       
 
       <div className="bg-theme-surface/50 border border-theme-border rounded-xl p-4 flex items-center justify-between flex-wrap gap-2 glass-surface">
