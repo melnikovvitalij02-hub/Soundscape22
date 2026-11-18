@@ -119,12 +119,12 @@ export default function TrendingPage() {
       if (pattern) {
         pattern.forEach((track) => {
           const hit = track[step];
-          if (typeof hit === 'string') makeSound(ctx, null, hit as TrackType, time, 0.5, trackEffects());
+          if (typeof hit === 'string') makeSound(ctx, null, hit as TrackType, time, 0.5, trackEffects(), bpm);
         });
         stepRef.current = (step + 1) % STEPS;
       } else {
         savedTracks.forEach((track) => {
-          if (track.steps[step]) makeSound(ctx, null, track.type, time, track.volume * 0.7, trackEffects(track));
+          if (track.steps[step]) makeSound(ctx, null, track.type, time, track.volume * 0.7, trackEffects(track), bpm);
         });
         stepRef.current = (step + 1) % totalSteps;
       }
