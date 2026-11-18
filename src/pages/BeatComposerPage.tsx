@@ -179,12 +179,17 @@ export function makeSound(
 
   const stepDuration = 60 / bpm / 4; // Длительность одного шага в секундах (для 16-х нот)
   const actualTime = time + (effects.offset / 16 || 0) * stepDuration;
+
+  // Защита от NaN
+  if (!isFinite(actualTime) || !isFinite(volume)) return;
+    const safePitch = isFinite(finePitchMultiplier) ? finePitchMultiplier : 1;
+    const safeLength = isFinite(lengthMultiplier) ? lengthMultiplier : 1;
   
   // Множитель длины звука
   const lengthMultiplier = effects.length || 1.0;
   
   // Множитель частоты для finePitch
-  const finePitchMultiplier = Math.pow(2, (effects.finePitch || 0) / 12);
+  const finePitchMultiplier = isFinite(Math.pow(2, (effects.finePitch || 0) / 12)) ? Math.pow(2, (effects.finePitch || 0) / 12) : 1;
   const masterGain = ctx.createGain();
   masterGain.gain.value = volume;
 
