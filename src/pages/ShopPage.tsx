@@ -9,7 +9,7 @@ import CoinPurchase from '@/components/CoinPurchase';
 import { useLocale } from '@/context/LocaleContext';
 //import GemWithdrawal from '@/components/GemWithdrawal';
 import PurchaseHistory from '@/components/PurchaseHistory';
-import StickerChest from '@/components/StickerChest';
+//import StickerChest from '@/components/StickerChest';
 
 type SamplePack = { id: string; name: string; producer_name: string; genre: string; price_gems: number; price_coins: number; description: string; track_count: number; cover_url: string | null; is_exclusive: boolean };
 type CosmeticItem = { id: string; name: string; type: 'skin' | 'frame' | 'theme' | 'effect'; price_gems: number; price_coins: number; rarity: 'common' | 'rare' | 'epic' | 'legendary'; preview_url: string | null; description: string };
@@ -375,10 +375,10 @@ export default function ShopPage() {
         })}
       </div>
     );
-  if (activeTab === 'stickers') return stickers.length === 0 ? <EmptyState icon={Sparkles} text={t('Стикеры скоро появятся')} /> : (
-    <StickerChest />
-  );
-  return null;
+  //if (activeTab === 'stickers') return stickers.length === 0 ? <EmptyState icon={Sparkles} text={t('Стикеры скоро появятся')} /> : (
+    //<StickerChest />
+  //);
+  //return null;
     
 
   return (
