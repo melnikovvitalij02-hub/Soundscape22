@@ -51,7 +51,7 @@ export default function PurchaseHistory() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!profile || isGuest) { setLoading(false); return; }
+    if (!profile || isGuest || !profile.id) { setLoading(false); return; }
     (async () => {
       const { data } = await supabase
         .from('payments')
@@ -60,6 +60,7 @@ export default function PurchaseHistory() {
         .order('created_at', { ascending: false })
         .limit(50);
       setRows((data ?? []) as PaymentRow[]);
+      console.log('profile.id =', profile.id, '| вернулось строк =', (data ?? []).length, '| первые user_id =', (data ?? []).slice(0,3).map(r => r.id));
       const channel = supabase
         .channel('payments-' + profile.id)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${profile.id}` }, () => {
