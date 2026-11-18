@@ -212,13 +212,18 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
         };
         tick();
         intervalRef.current = window.setInterval(tick, stepDuration);
-        // монетизация: начислить автору один раз за уникальное прослушивание
+        // монетизация: начислить автору через 30 секунд прослушивания
         if (profile && !isGuest) {
-          const durSec = totalSteps * (60 / effectiveBpm / 4);
+          const trackTotalSec = totalSteps * (60 / effectiveBpm / 4); // n
+          const listenedSec = 30; // Фиксируем 30 сек как факт прослушивания для простоты
+
           window.setTimeout(() => {
             if (playingId === beat.id) {
-              supabase.rpc('record_beat_listen_and_reward', { p_beat_id: beat.id, p_duration_sec: durSec })
-                .then(({ error }) => error && console.error('reward rpc', error));
+              supabase.rpc('record_beat_listen_and_reward', { 
+                p_beat_id: beat.id, 
+                p_track_duration_sec: trackTotalSec,
+                p_listened_sec: listenedSec
+              }).then(({ error }) => error && console.error('reward rpc', error));
             }
           }, 30000);
         }
