@@ -23,26 +23,31 @@ export default function GemWithdrawal() {
 
   const handleWithdraw = async () => {
     if (!profile || isGuest || !validAmount || !details.trim()) return;
-    setError(null);
-    setLoading(true);
-    const { data, error: rpcError } = await supabase.rpc('request_withdrawal', {
-      p_coins_amount: gems,
-      p_payment_details: details.trim(),
-    });
-    setLoading(false);
-    if (rpcError) {
-      setError(
-        rpcError.message.includes('Minimum') ? t('Минимум 100 Gem для вывода') :
-        rpcError.message.includes('Insufficient') ? t('Недостаточно Gem на балансе') :
-        rpcError.message.includes('7 days') ? t('Аккаунт должен существовать минимум 7 дней') :
-        t('Не удалось создать заявку. Попробуйте позже.'),
-      );
-      return;
-    }
-    await refreshProfile();
-    setSuccess(`Заявка на вывод ${gems} Gem (${(gems * GEM_TO_RUB).toFixed(2)} ₽) отправлена. Обработка займёт до 3 рабочих дней.`);
-    setAmount('');
-    setDetails('');
+    setError(null); setLoading(true);
+    try {
+    // 1. Проверка баланса
+      if (gems > (profile.donate_coins ?? 0)) throw new Error('Недостаточно Gem');
+    // 2. Нет активной заявки?
+      const { data: pending } = await supabase.from('withdrawal_requests')
+        .select('id').eq('user_id', profile.id).eq('status', 'pending').maybeSingle();
+      if (pending) throw new Error('Уже есть активная заявка');
+    // 3. Списываем гемы
+      const { error: upErr } = await supabase.from('profiles')
+        .update({ donate_coins: (profile.donate_coins ?? 0) - gems })
+        .eq('id', profile.id);
+      if (upErr) throw upErr;
+    // 4. Создаём заявку
+      const rub = Math.round(gems * 0.7 * 100) / 100;
+      const { error: insErr } = await supabase.from('withdrawal_requests').insert({
+        user_id: profile.id, gem_amount: gems, rub_amount: rub,
+        payout_details: details.trim(), status: 'pending',
+      });
+      if (insErr) throw insErr;
+      await refreshProfile();
+      setSuccess(`Заявка на ${gems} Gem (${rub.toFixed(2)} ₽) создана.`);
+      setAmount(''); setDetails('');
+    } catch (e: any) { setError(e.message || 'Ошибка'); }
+    finally { setLoading(false); }
   };
 
   if (isGuest || !profile) return null;
