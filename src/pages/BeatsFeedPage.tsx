@@ -103,6 +103,9 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
   const [recordingBeatId, setRecordingBeatId] = useState<string | null>(null);
   const [recordSecs, setRecordSecs] = useState(0);
   const [supportMsg, setSupportMsg] = useState<Record<string, string>>({});
+  const [supportOpenFor, setSupportOpenFor] = useState<string | null>(null);
+  const [supportAmount, setSupportAmount] = useState(100);
+  const [supportCurrency, setSupportCurrency] = useState<'coin' | 'gem'>('coin');
   const [showRemixFor, setShowRemixFor] = useState<string | null>(null);
   const [remixTitle, setRemixTitle] = useState('');
   const [remixUrl, setRemixUrl] = useState('');
