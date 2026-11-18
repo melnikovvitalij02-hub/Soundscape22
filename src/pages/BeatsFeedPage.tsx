@@ -125,6 +125,11 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
   const recordTimerRef = useRef<number | null>(null);
   const recorderStartRef = useRef<number>(0);
 
+  const copyBeatToComposer = (beat: Beat) => {
+  localStorage.setItem('copied_beat', JSON.stringify(beat.data));
+  window.location.href = '/beat'; // или setPage('beat')
+  };
+
   const [editingBeat, setEditingBeat] = useState<Beat | null>(null);
   const [editForm, setEditForm] = useState({ description: '', download_access: 'premium', comment_access: 'all', price_gem: 100, price_coin: 1000, is_hot: false });
 
