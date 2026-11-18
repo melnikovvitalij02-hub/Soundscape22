@@ -114,7 +114,7 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
         download_access: downloadAccess,
         comment_access: commentAccess,
         price_gem: downloadAccess === 'paid' ? priceGem : 0,
-        price_Coin : 0,
+        price_coin : 0,
         is_hot: profile.is_premium ? isHot : false,
         is_public: true,
       }).select('id').maybeSingle();
