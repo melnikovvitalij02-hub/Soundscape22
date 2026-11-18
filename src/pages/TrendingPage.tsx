@@ -166,7 +166,7 @@ export default function TrendingPage() {
           <Lock className="w-5 h-5 text-theme-warning shrink-0 mt-0.5" />
           <div className="text-sm">
             <p className="text-theme-text font-medium mb-1">{t('Добавление и продвижение треков — только для Premium')}</p>
-            <p className="text-theme-muted">{t('Оформите подписку Premium, чтобы загружать свои MP3 и продвигать их в рейтинге')}</p>
+            <p className="text-theme-muted">{t('Оформите подписку Premium, чтобы продвигать треки в рейтинге')}</p>
           </div>
         </div>
       )}
@@ -207,7 +207,7 @@ export default function TrendingPage() {
       ) : beats.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <Trophy className="w-8 h-8 text-theme-muted" />
-          <p className="text-sm text-theme-muted">{t('Пока нет опубликованных треков. Загрузите свой MP3 или выложите бит в ленту, и он появится здесь')}</p>
+          <p className="text-sm text-theme-muted">{t('Пока нет опубликованных треков. Выложите бит в ленту, и он появится здесь')}</p>
         </div>
       ) : (
         <ol className="space-y-3">
