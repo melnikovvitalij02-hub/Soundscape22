@@ -375,11 +375,10 @@ export default function ShopPage() {
         })}
       </div>
     );
-    if (activeTab === 'stickers') return stickers.length === 0 ? <EmptyState icon={Sparkles} text={t('Стикеры скоро появятся')} /> : (
-      <StickerChest />
-    );
-    
-  }
+  if (activeTab === 'stickers') return stickers.length === 0 ? <EmptyState icon={Sparkles} text={t('Стикеры скоро появятся')} /> : (
+    <StickerChest />
+  );
+  return null;
     
 
   return (
