@@ -96,8 +96,10 @@ export default function CoinPurchase() {
       </div>
 
       <div className="bg-theme-surface/50 border border-theme-border rounded-xl p-4 flex items-center justify-between flex-wrap gap-2 glass-surface">
-        <p className="text-sm text-theme-muted">Курс обмена донат-монет</p>
+        <p className="text-sm text-theme-muted">Курс покупки донат-монет</p>
         <p className="text-sm font-bold text-theme-text">1 донат-монета ≈ {DONATE_COIN_PACKAGES[0].rub / DONATE_COIN_PACKAGES[0].coins} ₽</p>
+        <p className="text-sm text-theme-muted">Курс продажи донат-монет</p>
+        <p className="text-sm font-bold text-theme-text">1 донат-монета ≈ 0.7 ₽</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
