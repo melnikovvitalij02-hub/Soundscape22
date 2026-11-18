@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import GemWithdrawal from '@/components/GemWithdrawal';
 import { Coins, Gem, Loader2, Gamepad2, AlertCircle, X } from 'lucide-react';
 
 export type CoinPackage = {
@@ -95,7 +94,6 @@ export default function CoinPurchase() {
           Донат-монеты покупаются за деньги и тратятся на звуковые наборы (сэмпл-паки). Игровые монеты зарабатываются в играх и тратятся на остальные покупки в магазине.
         </p>
       </div>
-      <GemWithdrawal />
       
 
       <div className="bg-theme-surface/50 border border-theme-border rounded-xl p-4 flex items-center justify-between flex-wrap gap-2 glass-surface">
