@@ -39,8 +39,11 @@ export default function GemWithdrawal() {
     // 4. Создаём заявку
       const rub = Math.round(gems * 0.7 * 100) / 100;
       const { error: insErr } = await supabase.from('withdrawal_requests').insert({
-        user_id: profile.id, gem_amount: gems, rub_amount: rub,
-        payout_details: details.trim(), status: 'pending',
+        user_id: profile.id,
+        coins_amount: gems,
+        rub_amount: rub,
+        payout_details: details.trim(),
+        status: 'pending',
       });
       if (insErr) throw insErr;
       await refreshProfile();
