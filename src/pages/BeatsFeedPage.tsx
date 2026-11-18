@@ -831,7 +831,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                             {beat.creator?.username?.[0]?.toUpperCase() || '?'}
                           </div>
                         )}
-                        <span className="text-xs text-theme-muted truncate">{beat.creator?.username || t('Аноним')}</span>
+                        <a href={`/profile/${beat.user_id}`} className="text-xs text-theme-muted truncate hover:text-theme-primary">{beat.creator?.username || t('Аноним')}</a>
                         {beat.is_public === false && (
                           <span className="text-[10px] text-theme-warning flex items-center gap-0.5"><Lock className="w-3 h-3" /> {t('Приватный')}</span>
                         )}
@@ -915,14 +915,6 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                     >
                       <MessageCircle className="w-4 h-4" />
                       {cCount}
-                    </button>
-                    <button
-                      onClick={() => startRecording(beat.id)}
-                      disabled={recordingBeatId !== null}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-surface2 text-theme-muted hover:text-theme-text transition-colors disabled:opacity-50"
-                    >
-                      <Mic className="w-4 h-4" />
-                      {recordingBeatId === beat.id ? `${t('Запись')} ${formatTime(recordSecs)}` : t('Голос')}
                     </button>
                     <button
                       onClick={() => support(beat)}
@@ -1013,26 +1005,6 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                       <Send className="w-4 h-4" />
                     </button>
                   </div>
-
-                  {voiceComments.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs text-theme-muted uppercase tracking-wider">{t('Голосовые комментарии')}</p>
-                      {voiceComments.map((vc) => (
-                        <div key={vc.id} className="flex items-center gap-2 p-2 bg-theme-surface2 rounded-lg">
-                          {vc.avatar_url ? (
-                            <img src={vc.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-theme-primary/20 flex items-center justify-center text-theme-primary text-[10px] font-bold">
-                              {vc.username?.[0]?.toUpperCase() || '?'}
-                            </div>
-                          )}
-                          <span className="text-xs text-theme-muted">{vc.username}</span>
-                          <audio controls src={vc.audio_url} className="h-7 flex-1" />
-                          <span className="text-xs text-theme-muted font-mono">{formatTime(vc.duration)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
 
                   {comments.length > 0 ? (
                     <div className="space-y-2">
