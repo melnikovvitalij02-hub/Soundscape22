@@ -890,22 +890,25 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                               >
                                 <Edit2 className="w-4 h-4" /> {t('Переименовать')}
                               </button>
-                              <button
-                                onClick={() => { copyBeatToComposer(beat); setMenuOpenBeatId(null); }}
-                                className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
->
-                                <Copy className="w-4 h-4" /> {t('Скопировать проект')}
+                              {beat.allow_copy !== false && (
+                                <button onClick={() => { copyBeatToComposer(beat); setMenuOpenBeatId(null); }} className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2">
+                                  <Copy className="w-4 h-4" /> {t('Скопировать проект')}
+                                </button>
+                              )}
+                              <div className="border-t border-theme-border my-1" />
+                              <button onClick={() => deleteBeat(beat)} className="w-full px-3 py-2 text-left text-sm text-theme-danger hover:bg-theme-danger/10 flex items-center gap-2">
+                                <Trash2 className="w-4 h-4" /> {t('Удалить')}
                               </button>
-                              <button
-                                onClick={() => toggleBeatPublic(beat)}
-                                className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
+                            </div>
+                            <button
+                              onClick={() => toggleBeatPublic(beat)}
+                              className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
                               >
                                 {beat.is_public !== false ? <><EyeOff className="w-4 h-4" /> {t('Сделать приватным')}</> : <><Eye className="w-4 h-4" /> {t('Сделать публичным')}</>}
                               </button>
                               <button
                                 onClick={() => downloadBeat(beat)}
-                                className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
-                              >
+                                className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2">
                                 <Download className="w-4 h-4" /> {t('Скачать')}
                               </button>
                               <button onClick={() => { setEditingBeat(beat); setEditForm({ description: beat.description || '', download_access: beat.download_access || 'premium', comment_access: beat.comment_access || 'all', price_gem: beat.price_gem || 100, price_coin: beat.price_coin || 1000, is_hot: beat.is_hot || false }); setMenuOpenBeatId(null); }} className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"><Sliders className="w-4 h-4" /> {t('Настройки доступа')}</button>
