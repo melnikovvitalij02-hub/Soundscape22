@@ -656,9 +656,8 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     if (!isOwner && !owned) {
       if (beat.download_access === 'nobody') { setStatus(t('Автор запретил     скачивание')); setTimeout(() => setStatus(null), 3000); return; }
       if (isPaid) { setStatus(t('Сначала купите этот бит')); setTimeout(()     => setStatus(null), 3000); return; }
-      if (profile?.is_premium !== true) { setStatus(t('Скачивание — только     для Premium')); setTimeout(() => setStatus(null), 3000); return; }
+      if (profile?.is_premium !== true) { setStatus(t('Скачивание — только для Premium')); setTimeout(() => setStatus(null), 3000); return; }
     }
-  };
 
     const tracks = beat.data?.tracks;
     try {
@@ -681,7 +680,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       setStatus(t('Не удалось скачать бит.'));
       setTimeout(() => setStatus(null), 4000);
     }
-    };
+  };
 
   const coverFor = (b: Beat) => b.cover_url || '/cover-igotu.webp';
 
