@@ -187,6 +187,7 @@ export default function CoinPurchase() {
       {isGuest && (
         <p className="text-xs text-theme-muted text-center">Войдите в аккаунт, чтобы покупать донат-монеты.</p>
       )}
+      <GemWithdrawal />
     </div>
   );
 }
