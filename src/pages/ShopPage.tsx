@@ -424,6 +424,7 @@ export default function ShopPage() {
     );
     if (activeTab === 'history') return <PurchaseHistory />;
     return null;
+  })();
     
 
   return (
