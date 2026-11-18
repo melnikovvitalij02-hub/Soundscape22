@@ -650,7 +650,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     setMenuOpenBeatId(null);
     const isOwner = profile?.id === beat.user_id;
     const owned = ownedBeats.has(beat.id);
-    const isPaid = (beat.price_gem ?? 0) > 0 || (beat.price_coin ?? 0) > 0;
+    const isPaid = (beat.price_gem ?? 0) > 0;
     if (!isOwner && !owned) {
       if (beat.download_access === 'nobody') { setStatus(t('Автор запретил     скачивание')); setTimeout(() => setStatus(null), 3000); return; }
       if (isPaid) { setStatus(t('Сначала купите этот бит')); setTimeout(()     => setStatus(null), 3000); return; }
@@ -690,6 +690,8 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
 
   const playingBeat = useMemo(() => beats.find((b) => b.id === playingId) || null, [beats, playingId]);
 
+  const isOwnBeat = (beat: Beat) => profile?.id === beat.user_id;
+
   const filteredBeats = useMemo(() => {
     let result = [...beats];
     if (searchQuery.trim()) {
@@ -708,7 +710,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     return result;
   }, [beats, searchQuery, sortBy, likeCounts, commentCounts]);
 
-  const isOwnBeat = (beat: Beat) => profile?.id === beat.user_id;
+  //const isOwnBeat = (beat: Beat) => profile?.id === beat.user_id;
 
   return (
     <div className="space-y-6">
@@ -786,6 +788,8 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
           const voiceComments = voiceCommentsByBeat[beat.id] || [];
           const isPlaying = playingId === beat.id;
           const ownBeat = isOwnBeat(beat);
+          const isPaid = (beat.price_gem ?? 0) > 0;
+          
           return (
             <div
               key={beat.id}
