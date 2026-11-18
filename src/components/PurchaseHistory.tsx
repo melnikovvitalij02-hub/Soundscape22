@@ -61,11 +61,19 @@ export default function PurchaseHistory() {
         .limit(50);
       setRows((data ?? []) as PaymentRow[]);
       console.log('profile.id =', profile.id, '| вернулось строк =', (data ?? []).length, '| первые user_id =', (data ?? []).slice(0,3).map(r => r.id));
+      const refetch = async () => {
+        const { data } = await supabase.from('payments')
+          .select('id, label, amount, status, payment_type, created_at')
+          .eq('user_id', profile.id).order('created_at', { ascending: false }).limit(50);
+        setRows((data ?? []) as PaymentRow[]);
+      };
+      await refetch(); setLoading(false);
+      
       const channel = supabase
-        .channel('payments-' + profile.id)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${profile.id}` }, () => {
-          refetch();
-        })
+        .channel('my-payments')
+        .on('postgres_changes',
+          { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${profile.id}` },
+          () => refetch())
         .subscribe();
       return () => { supabase.removeChannel(channel); };
       setLoading(false);
