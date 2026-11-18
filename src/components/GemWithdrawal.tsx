@@ -42,7 +42,7 @@ export default function GemWithdrawal() {
         user_id: profile.id,
         coins_amount: gems,
         rub_amount: rub,
-        payout_details: details.trim(),
+        payment_details: details.trim(),
         status: 'pending',
       });
       if (insErr) throw insErr;
