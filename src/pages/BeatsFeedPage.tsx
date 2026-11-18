@@ -899,8 +899,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                               <button onClick={() => deleteBeat(beat)} className="w-full px-3 py-2 text-left text-sm text-theme-danger hover:bg-theme-danger/10 flex items-center gap-2">
                                 <Trash2 className="w-4 h-4" /> {t('Удалить')}
                               </button>
-                            </div>
-                            <button
+                              <button
                               onClick={() => toggleBeatPublic(beat)}
                               className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
                               >
