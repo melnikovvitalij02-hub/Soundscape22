@@ -174,7 +174,7 @@ export default function CoinPurchase() {
                 disabled={loadingPkg === confirmPkg.id}
                 className="flex-1 py-3 bg-gradient-to-r from-theme-primary to-theme-accent text-white rounded-xl text-sm font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                {loadingPkg === confirmPkg.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Gem key={index} className="w-4 h-4 text-white sm"/> Перейти к оплате</>}
+                {loadingPkg === confirmPkg.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Gem className="w-4 h-4 text-white" /> Перейти к оплате</>}
               </button>
             </div>
           </div>
