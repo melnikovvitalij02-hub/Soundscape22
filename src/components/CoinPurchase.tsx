@@ -95,6 +95,8 @@ export default function CoinPurchase() {
         </p>
       </div>
 
+      <GemWithdrawal />
+
       <div className="bg-theme-surface/50 border border-theme-border rounded-xl p-4 flex items-center justify-between flex-wrap gap-2 glass-surface">
         <p className="text-sm text-theme-muted">Курс покупки донат-монет</p>
         <p className="text-sm font-bold text-theme-text">1 донат-монета ≈ {DONATE_COIN_PACKAGES[0].rub / DONATE_COIN_PACKAGES[0].coins} ₽</p>
@@ -187,7 +189,7 @@ export default function CoinPurchase() {
       {isGuest && (
         <p className="text-xs text-theme-muted text-center">Войдите в аккаунт, чтобы покупать донат-монеты.</p>
       )}
-      <GemWithdrawal />
+      
     </div>
   );
 }
