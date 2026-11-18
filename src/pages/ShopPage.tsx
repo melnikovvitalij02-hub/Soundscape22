@@ -9,7 +9,7 @@ import CoinPurchase from '@/components/CoinPurchase';
 import { useLocale } from '@/context/LocaleContext';
 //import GemWithdrawal from '@/components/GemWithdrawal';
 import PurchaseHistory from '@/components/PurchaseHistory';
-//import StickerChest from '@/components/StickerChest';
+import StickerChest from '@/components/StickerChest';
 
 type SamplePack = { id: string; name: string; producer_name: string; genre: string; price_gems: number; price_coins: number; description: string; track_count: number; cover_url: string | null; is_exclusive: boolean };
 type CosmeticItem = { id: string; name: string; type: 'skin' | 'frame' | 'theme' | 'effect'; price_gems: number; price_coins: number; rarity: 'common' | 'rare' | 'epic' | 'legendary'; preview_url: string | null; description: string };
@@ -204,6 +204,23 @@ export default function ShopPage() {
     showMessage(t('«') + item.name + t('» установлено!'));
   };
 
+  const handleEquipAvatar = async (item: AvatarShopItem) => {
+    if (!profile || isGuest || !ownedAvatars.includes(item.id)) return;
+    setEquipping(item.id);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: item.image_url })
+      .eq('id', profile.id);
+    if (error) {
+      setEquipping(null);
+      showMessage(t('Не удалось установить аватар'));
+      return;
+    }
+    await refreshProfile();
+    setEquipping(null);
+    showMessage(t('Аватар установлен!'));
+  };
+
   const handleBuyBoost = (item: BoostItem, currency: 'gem' | 'coin') =>
     buyWithBalance('boost', item, currency, item.name);
 
@@ -374,10 +391,34 @@ export default function ShopPage() {
         })}
       </div>
     );
-  //if (activeTab === 'stickers') return stickers.length === 0 ? <EmptyState icon={Sparkles} text={t('Стикеры скоро появятся')} /> : (
-    //<StickerChest />
-  //);
-  //return null;
+    if (activeTab === 'stickers') return (
+      <div className="space-y-6">
+        <StickerChest />
+        {stickers.length === 0 ? (
+          <EmptyState icon={Sparkles} text={t('Стикеры скоро появятся')} />
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+            {stickers.map((item) => {
+              const owned = ownedStickers.includes(item.id);
+              return (
+                <div key={item.id} className="bg-theme-surface/50 border border-theme-border rounded-2xl overflow-hidden glass-surface shop-card">
+                  <div className="aspect-square flex items-center justify-center bg-theme-surface2 p-3">
+                    <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
+                  </div>
+                  <div className="p-3">
+                    <p className="text-theme-text text-xs font-medium truncate">{item.name}</p>
+                    <p className="text-theme-muted text-xs mt-1">{item.price_coins} Coin</p>
+                    {owned && <p className="text-theme-success text-xs mt-1">✓ {t('В коллекции')}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+    if (activeTab === 'history') return <PurchaseHistory />;
+    return null;
     
 
   return (
