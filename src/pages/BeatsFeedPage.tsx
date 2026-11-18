@@ -949,11 +949,11 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                       {cCount}
                     </button>
                     <button
-                      onClick={() => support(beat)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-surface2 text-theme-muted hover:text-theme-warning transition-colors"
-                    >
-                      <Gem className="w-4 h-4" />
-                      {t('Поддержать')}
+                      onClick={() => setSupportOpenFor(beat.id)}
+                      disabled={isOwnBeat}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-surface2 text-theme-muted hover:text-theme-warning transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+>
+                      <Gem className="w-4 h-4" /> {t('Поддержать')}
                     </button>
                     {isPaid ? (
                       ownedBeats.has(beat.id) ? (
