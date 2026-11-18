@@ -1131,6 +1131,52 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
           </button>
         </div>
       )}
+      {supportOpenFor && (() => {
+  const beat = beats.find(b => b.id === supportOpenFor);
+  if (!beat) return null;
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSupportOpenFor(null)}>
+      <div className="bg-theme-surface border border-theme-border rounded-2xl p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-theme-text font-semibold flex items-center gap-2">
+            <Gem className="w-5 h-5 text-theme-warning" /> {t('Поддержать')} {beat.title}
+          </h3>
+          <button onClick={() => setSupportOpenFor(null)} className="text-theme-muted hover:text-theme-text"><X className="w-5 h-5" /></button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-theme-muted mb-1.5">{t('Валюта')}</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setSupportCurrency('coin')} className={`py-2 rounded-lg text-sm font-medium ${supportCurrency === 'coin' ? 'bg-theme-primary text-white' : 'bg-theme-surface2 text-theme-muted'}`}>
+                🪙 {t('Монеты')} ({profile?.coins ?? 0})
+              </button>
+              <button onClick={() => setSupportCurrency('gem')} className={`py-2 rounded-lg text-sm font-medium ${supportCurrency === 'gem' ? 'bg-theme-warning text-white' : 'bg-theme-surface2 text-theme-muted'}`}>
+                💎 Gem ({profile?.donate_coins ?? 0})
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-theme-muted mb-1.5">{t('Сумма')}</label>
+            <input type="number" min={10} value={supportAmount} onChange={(e) => setSupportAmount(Math.max(10, Number(e.target.value) || 0))} className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm focus:outline-none focus:border-theme-primary" />
+            <div className="flex gap-2 mt-2">
+              {[100, 500, 1000, 5000].map(v => (
+                <button key={v} onClick={() => setSupportAmount(v)} className="flex-1 py-1 text-xs bg-theme-surface2 rounded hover:bg-theme-border">{v}</button>
+              ))}
+            </div>
+          </div>
+
+          <textarea value={supportMsg[supportOpenFor] || ''} onChange={(e) => setSupportMsg((prev) => ({ ...prev, [supportOpenFor!]: e.target.value }))} placeholder={t('Сообщение автору (необязательно)')} rows={2} className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm focus:outline-none focus:border-theme-primary resize-none" />
+        </div>
+
+        <button onClick={() => support(beat)} disabled={supportAmount < 10} className="w-full py-2.5 bg-gradient-to-r from-theme-warning to-amber-500 text-white rounded-xl text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
+          <Gem className="w-4 h-4" /> {t('Отправить')} {supportAmount} {supportCurrency === 'gem' ? 'Gem' : t('монет')}
+        </button>
+      </div>
+    </div>
+  );
+})()}
     </div>
   );
 }
