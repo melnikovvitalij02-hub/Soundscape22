@@ -4,8 +4,8 @@ import { supabase } from '@/lib/supabase';
 import { useLocale } from '@/context/LocaleContext';
 import { Gem, Loader2, ArrowDownToLine, Info } from 'lucide-react';
 
-const GEM_TO_RUB = 0.3;
-const MIN_WITHDRAWAL = 100;
+const GEM_TO_RUB = 0.7;
+const MIN_WITHDRAWAL = 300;
 
 export default function GemWithdrawal() {
   const { profile, isGuest, refreshProfile } = useAuth();
@@ -56,7 +56,7 @@ export default function GemWithdrawal() {
           </div>
           <div>
             <p className="text-theme-text font-medium text-sm flex items-center gap-1.5"><Gem className="w-4 h-4 text-theme-warning" /> {t('Вывод Gem')}</p>
-            <p className="text-theme-muted text-xs mt-0.5">{t(`От ${MIN_WITHDRAWAL} Gem · курс 1 Gem = 0,3 ₽`)}</p>
+            <p className="text-theme-muted text-xs mt-0.5">{t(`От ${MIN_WITHDRAWAL} Gem · курс 1 Gem = 0,7 ₽`)}</p>
           </div>
         </div>
         <span className="text-theme-muted text-sm shrink-0">{open ? '−' : '+'}</span>
