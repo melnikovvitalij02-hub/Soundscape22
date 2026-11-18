@@ -658,6 +658,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       if (isPaid) { setStatus(t('Сначала купите этот бит')); setTimeout(()     => setStatus(null), 3000); return; }
       if (profile?.is_premium !== true) { setStatus(t('Скачивание — только     для Premium')); setTimeout(() => setStatus(null), 3000); return; }
     }
+  };
 
     const tracks = beat.data?.tracks;
     try {
