@@ -985,12 +985,9 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                   <input
                     value={supportMsg[beat.id] || ''}
                     onChange={(e) => setSupportMsg((prev) => ({ ...prev, [beat.id]: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') support(beat);
-                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') support(beat); }}
                     placeholder={t('Сообщение автору (100 монет)...')}
-                    className="mt-2 w-full px-3 py-1.5 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-xs focus:outline-none focus:border-theme-primary"
-                  />
+                    className="mt-2 w-full px-3 py-1.5 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-xs focus:outline-none focus:border-theme-primary"/>
                 </div>
               </div>
 
