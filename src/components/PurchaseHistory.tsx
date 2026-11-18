@@ -55,7 +55,7 @@ export default function PurchaseHistory() {
     (async () => {
       const { data } = await supabase
         .from('payments')
-        .select('id, label, amount, status, payment_type, created_at')
+        .select('*')
         .eq('user_id', profile.id)
         .order('created_at', { ascending: false })
         .limit(50);
