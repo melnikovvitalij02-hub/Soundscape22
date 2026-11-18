@@ -111,8 +111,8 @@ export default function CoinPurchase() {
             <div className="flex items-start justify-between mb-3">
               <div className="coin-display">
                 <div className={`coin-row ${pkg.coins === 1000 ? 'stacked' : ''} ${pkg.coins === 2500 ? 'heavy-stacked' : ''}`}>
-                  {Array.from({ length: pkg.coins === 100 ? 1 : pkg.coins === 300 ? 3 : pkg.coins === 1000 ? 5 : 7 }).map((_, index) => (
-                    <Gem key={index} className="w-4 h-4 text-white"/>
+                  {Array.from({ length: pkg.coins === 100 ? 1 : pkg.coins === 300 ? 3 : pkg.coins === 1000 ? 5 : 7 }).map((_, i) => (
+                    <Gem key={i} className="w-4 h-4 text-white"/>
                   ))}
                 </div>
               </div>
