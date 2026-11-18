@@ -1047,8 +1047,8 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
         <div
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <button onClick={() => copyBeatToComposer(beat)} ...><Copy ... /> {t('Скопировать проект')}</button>
+        /div>
       )}
-        </div>
 
       {/* Rename modal */}
       {renamingBeat && (
