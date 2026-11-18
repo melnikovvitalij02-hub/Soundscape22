@@ -1042,49 +1042,11 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
         )}
       </div>
 
-      {/* Remix modal */}
+      {/* Copy modal */}
       {showRemixFor && (
         <div
           className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setShowRemixFor(null)}
-        >
-          <div
-            className="glass-surface bg-theme-surface border border-theme-border rounded-2xl p-6 w-full max-w-md space-y-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-theme-text font-semibold flex items-center gap-2">
-                <GitFork className="w-5 h-5 text-theme-primary" /> {t('Создать ремикс')}
-              </h3>
-              <button onClick={() => setShowRemixFor(null)} className="text-theme-muted hover:text-theme-text">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <input
-                value={remixTitle}
-                onChange={(e) => setRemixTitle(e.target.value)}
-                placeholder={t('Название ремикса')}
-                className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm focus:outline-none focus:border-theme-primary"
-              />
-              <input
-                value={remixUrl}
-                onChange={(e) => setRemixUrl(e.target.value)}
-                placeholder={t('Ссылка на аудио (URL)')}
-                className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm focus:outline-none focus:border-theme-primary"
-              />
-            </div>
-            <button
-              onClick={() => {
-                const beat = beats.find((b) => b.id === showRemixFor);
-                if (beat) submitRemix(beat);
-              }}
-              className="w-full px-4 py-2 bg-theme-primary text-white rounded-lg text-sm font-medium hover:bg-theme-primary-hover transition-colors"
-            >
-              {t('Опубликовать ремикс')}
-            </button>
-          </div>
-        </div>
+          <button onClick={() => copyBeatToComposer(beat)} ...><Copy ... /> {t('Скопировать проект')}</button>
       )}
 
       {/* Rename modal */}
