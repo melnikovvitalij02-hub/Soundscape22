@@ -67,6 +67,7 @@ export default function PurchaseHistory() {
           .eq('user_id', profile.id).order('created_at', { ascending: false }).limit(50);
         setRows((data ?? []) as PaymentRow[]);
       };
+      console.log('Мои покупки:', data?.map(r => ({ id: r.id, user_id: r.user_id, label: r.label })));
       await refetch(); setLoading(false);
       
       const channel = supabase
