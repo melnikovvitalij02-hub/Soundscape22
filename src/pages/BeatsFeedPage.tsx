@@ -938,7 +938,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                     </button>
                     {isPaid ? (
                       ownedBeats.has(beat.id) ? (
-                        <button onClick={() => downloadBeat(beat)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-success/15 text-theme-success hover:opacity-80">
+                      <button onClick={() => downloadBeat(beat)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-success/15 text-theme-success hover:opacity-80">
                           <Download className="w-4 h-4" /> {t('Скачать')}
                         </button>
                       ) : (
