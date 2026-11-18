@@ -952,13 +952,6 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                       <Gem className="w-4 h-4" />
                       {t('Поддержать')}
                     </button>
-                    <button
-                      onClick={() => setShowRemixFor(beat.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-surface2 text-theme-muted hover:text-theme-primary transition-colors"
-                    >
-                      <GitFork className="w-4 h-4" />
-                      {t('Ремикс')}
-                    </button>
                     {isPaid ? (
                       ownedBeats.has(beat.id) ? (
                       <button onClick={() => downloadBeat(beat)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-success/15 text-theme-success hover:opacity-80">
