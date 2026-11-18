@@ -938,11 +938,11 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                     </button>
                     {isPaid ? (
                       ownedBeats.has(beat.id) ? (
-                        <button onClick={() => downloadBeat(beat)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-success/15 text-theme-success hover:opacity-80 transition-opacity">
+                        <button onClick={() => downloadBeat(beat)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-success/15 text-theme-success hover:opacity-80">
                           <Download className="w-4 h-4" /> {t('Скачать')}
                         </button>
                       ) : (
-                        <button onClick={() => handleBuyBeat(beat)} disabled={buyingBeatId === beat.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-warning/15 text-theme-warning hover:opacity-80 transition-opacity disabled:opacity-50">
+                        <button onClick={() => handleBuyBeat(beat)} disabled={buyingBeatId === beat.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-warning/15 text-theme-warning hover:opacity-80 disabled:opacity-50">
                           {buyingBeatId === beat.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
                           {t('Купить за')} {beat.price_gem} Gem
                         </button>
