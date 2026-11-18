@@ -265,7 +265,12 @@ export default function ShopPage() {
         <div className="w-8 h-8 border-2 border-theme-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
-    if (activeTab === 'coins') return <CoinPurchase />;
+    if (activeTab === 'coins') return (
+      <div className="space-y-6">
+        <CoinPurchase />
+        <GemWithdrawal />
+      </div>
+    );
     if (activeTab === 'history') return <PurchaseHistory />;
     if (activeTab === 'samples') return samplePacks.length === 0 ? <EmptyState icon={Package} text={t('Сэмпл-паки скоро появятся')} /> : (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
