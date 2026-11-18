@@ -891,6 +891,12 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                                 <Edit2 className="w-4 h-4" /> {t('Переименовать')}
                               </button>
                               <button
+                                onClick={() => { copyBeatToComposer(beat); setMenuOpenBeatId(null); }}
+                                className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
+>
+                                <Copy className="w-4 h-4" /> {t('Скопировать проект')}
+                              </button>
+                              <button
                                 onClick={() => toggleBeatPublic(beat)}
                                 className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
                               >
@@ -1061,17 +1067,6 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
         {!hasMore && beats.length > 0 && (
           <p className="text-xs text-theme-muted">{t('Это все биты на сегодня')}</p>
         )}
-      </div>
-
-      {/* Copy modal */}
-      <div
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <button
-          onClick={() => { copyBeatToComposer(beat); setMenuOpenBeatId(null); }}
-          className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"
->
-          <Copy className="w-4 h-4" /> {t('Скопировать проект')}
-        </button>
       </div>
 
       {/* Rename modal */}
