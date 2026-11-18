@@ -26,7 +26,8 @@ import {
   Eye,
   Trash2,
   Star,
-  Sliders
+  Sliders,
+  Copy
 } from 'lucide-react';
 import { makeSound, type TrackType } from '@/pages/BeatComposerPage';
 import { STEPS, buildPattern, trackEffects, type SavedTrack } from '@/lib/beatPlayback';
