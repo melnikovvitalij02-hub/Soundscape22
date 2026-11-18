@@ -11,10 +11,10 @@ export type CoinPackage = {
 };
 
 export const DONATE_COIN_PACKAGES: CoinPackage[] = [
-  { id: 'coins_100', coins: 100, rub: 70, discount: null },
-  { id: 'coins_300', coins: 300, rub: 190, discount: 7 },
-  { id: 'coins_1000', coins: 1000, rub: 450, discount: 15 },
-  { id: 'coins_2500', coins: 2500, rub: 980, discount: 20 },
+  { id: 'coins_100', coins: 100, rub: 89, discount: null },
+  { id: 'coins_300', coins: 300, rub: 259, discount: 7 },
+  { id: 'coins_1000', coins: 1000, rub: 829, discount: 15 },
+  { id: 'coins_2500', coins: 2500, rub: 1879, discount: 20 },
 ];
 
 const YOOMONEY_WALLET = '4100119640056035';
