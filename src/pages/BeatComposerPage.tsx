@@ -190,7 +190,7 @@ export function makeSound(
   const finePitchMultiplier = isFinite(Math.pow(2, (effects.finePitch || 0) / 12)) ? Math.pow(2, (effects.finePitch || 0) / 12) : 1;
 
   const safePitch = isFinite(finePitchMultiplier) ? finePitchMultiplier : 1;
-  const safeLength = isFinite(lengthMultiplier) ? lengthMultiplier : 1; ? Math.pow(2, (effects.finePitch || 0) / 12) : 1;
+  const safeLength = isFinite(lengthMultiplier) ? lengthMultiplier : 1;
   const masterGain = ctx.createGain();
   masterGain.gain.value = volume;
 
