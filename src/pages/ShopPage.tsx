@@ -378,8 +378,9 @@ export default function ShopPage() {
     if (activeTab === 'stickers') return stickers.length === 0 ? <EmptyState icon={Sparkles} text={t('Стикеры скоро появятся')} /> : (
       <StickerChest />
     );
-  }
     return null;
+  }
+    
 
   return (
     <div className="shop-page space-y-6">
