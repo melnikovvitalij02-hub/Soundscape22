@@ -141,14 +141,6 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
           <button onClick={onClose} disabled={submitting} className="p-1.5 rounded-lg text-theme-muted hover:text-theme-text hover:bg-theme-surface2 disabled:opacity-50"><X className="w-5 h-5" /></button>
         </div>
 
-        {!isComposerMode && (
-          <label className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-colors ${file ? 'border-theme-primary bg-theme-primary/10' : 'border-theme-border hover:border-theme-primary'} ${submitting ? 'pointer-events-none opacity-60' : ''}`}>
-            <input type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" className="sr-only" disabled={submitting} onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)} />
-            {file ? <Music className="w-6 h-6 text-theme-primary" /> : <Upload className="w-6 h-6 text-theme-muted" />}
-            <span className="text-sm font-medium text-theme-text break-all">{file ? file.name : t('Выберите MP3 или WAV')}</span>
-          </label>
-        )}
-
         {isComposerMode && composerData && (
           <div className="flex items-center gap-3 p-4 rounded-xl border border-theme-primary/30 bg-theme-primary/10 mb-4">
             <Disc3 className="w-6 h-6 text-theme-primary" />
