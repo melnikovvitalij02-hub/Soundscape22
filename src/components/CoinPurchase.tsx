@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import GemWithdrawal from '@/components/GemWithdrawal';
 import { Coins, Gem, Loader2, Gamepad2, AlertCircle, X } from 'lucide-react';
 
 export type CoinPackage = {
