@@ -9,6 +9,7 @@ import CoinPurchase from '@/components/CoinPurchase';
 import { useLocale } from '@/context/LocaleContext';
 //import GemWithdrawal from '@/components/GemWithdrawal';
 import PurchaseHistory from '@/components/PurchaseHistory';
+import StickerChest from '@/components/StickerChest';
 
 type SamplePack = { id: string; name: string; producer_name: string; genre: string; price_gems: number; price_coins: number; description: string; track_count: number; cover_url: string | null; is_exclusive: boolean };
 type CosmeticItem = { id: string; name: string; type: 'skin' | 'frame' | 'theme' | 'effect'; price_gems: number; price_coins: number; rarity: 'common' | 'rare' | 'epic' | 'legendary'; preview_url: string | null; description: string };
@@ -375,37 +376,9 @@ export default function ShopPage() {
       </div>
     );
     if (activeTab === 'stickers') return stickers.length === 0 ? <EmptyState icon={Sparkles} text={t('Стикеры скоро появятся')} /> : (
-      <div className="space-y-5">
-        <div>
-          <p className="text-xs text-theme-muted uppercase tracking-wider mb-3">{t('Коллекция — только за Coin')}</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {stickers.map((item) => {
-              const owned = ownedStickers.includes(item.id);
-              const r = RARITY_STYLES[item.rarity] || RARITY_STYLES.common;
-              return (
-                <div key={item.id} className={`bg-theme-surface/50 border-2 rounded-2xl overflow-hidden glass-surface shop-card ${r.border} ${r.glow} ${owned ? '' : 'opacity-60'}`}>
-                  <div className="relative h-24 flex items-center justify-center bg-theme-surface2">
-                    {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" /> : <span className="text-4xl">{item.emoji}</span>}
-                    <RarityBadge rarity={item.rarity} legendary={item.rarity === 'legendary'} />
-                  </div>
-                  <div className="p-3">
-                    <h3 className="text-theme-text font-bold text-sm mb-1">{owned ? item.name : t('Не найдено')}</h3>
-                    <p className="text-theme-muted text-xs">{owned ? item.category : t('Откройте сундук')}</p>
-                    {!owned && (
-                      <div className="mt-2">
-                        <BuyButtons id={item.id} gems={0} coins={item.price_coins} onBuy={() => handleBuySticker(item)} label={t('Купить')} icon={Sparkles} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+      <StickerChest />
     );
     return null;
-  })();
 
   return (
     <div className="shop-page space-y-6">
