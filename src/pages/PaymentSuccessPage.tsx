@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useLocale } from '@/context/LocaleContext';
 import { supabase } from '@/lib/supabase';
-import { CheckCircle2, Loader2, Crown, ArrowRight, Music, XCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Loader2, Crown, ArrowRight, Music, XCircle, RefreshCw, Coins } from 'lucide-react';
 import type { Page } from '@/components/Sidebar';
 
 export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => void }) {
@@ -11,6 +11,7 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
   const [status, setStatus] = useState<'verifying' | 'activating' | 'done' | 'error' | 'polling'>('verifying');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [pollCount, setPollCount] = useState(0);
+  const [isCoins, setIsCoins] = useState(false);
   const ranRef = useRef(false);
 
   useEffect(() => {
@@ -21,70 +22,87 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
 
       if (!session?.user || isGuest) {
         setStatus('error');
-        setErrorMsg(t('Войдите в аккаунт, чтобы активировать покупку. Если вы оплатили — она будет обработана автоматически.'));
+        setErrorMsg(t('Войдите в аккаунт, чтобы активировать покупку.'));
         return;
       }
 
-      // ── Typed demo-payment path ───────────────────────────────────────
-      // When demoPaymentId is present, the payment row was created by either
-      // CoinPurchase (payment_type='coins') or PremiumButton (payment_type='premium').
-      // grant_demo_payment branches on payment_type server-side, so a coin
-      // purchase grants coins (NOT premium) and a premium purchase grants
-      // premium. We must NOT call grant_premium_for_payment here — that would
-      // grant premium even for a 30₽ coin purchase (Block 14 bug).
       if (demoPaymentId) {
-        setStatus('activating');
-        const { data: demoResult } = await supabase.rpc('grant_demo_payment', {
-          p_payment_id: demoPaymentId,
-        });
-        if (demoResult?.granted) {
+        // 1. Сначала узнаём тип и статус платежа напрямую из БД
+        const { data: payRow, error: payError } = await supabase
+          .from('payments')
+          .select('status, payment_type')
+          .eq('id', demoPaymentId)
+          .maybeSingle();
+
+        if (payError || !payRow) {
+          setStatus('error');
+          setErrorMsg(t('Платёж не найден в системе.'));
+          return;
+        }
+
+        const isCoinsPurchase = payRow.payment_type === 'coins';
+        setIsCoins(isCoinsPurchase);
+
+        if (payRow.status === 'succeeded') {
+          // Уже обработано (например, вебхуком)
           await refreshProfile();
           setStatus('done');
           return;
         }
 
-        // The demo RPC only claims a row that is still 'pending'. The YooMoney
-        // webhook may have already processed it (flipping status to 'succeeded'
-        // and granting the entitlement). Poll the payment row status to confirm.
-        setStatus('polling');
-        setPollCount(1);
-        const maxAttempts = 20;
-        let attempts = 0;
+        if (payRow.status === 'pending') {
+          setStatus('activating');
+          
+          // Пытаемся обработать через RPC (он должен смотреть на payment_type внутри себя)
+          const { data: demoResult } = await supabase.rpc('grant_demo_payment', {
+            p_payment_id: demoPaymentId,
+          });
 
-        const pollDemo = async () => {
-          attempts++;
-          setPollCount(attempts);
-
-          // Check the payment row status directly — NOT the coin/premium balance,
-          // which could already be non-zero from a prior purchase.
-          const { data: payRow } = await supabase
-            .from('payments')
-            .select('status, payment_type')
-            .eq('id', demoPaymentId)
-            .maybeSingle();
-
-          if (payRow?.status === 'succeeded') {
+          if (demoResult?.granted) {
             await refreshProfile();
             setStatus('done');
             return;
           }
 
-          if (attempts < maxAttempts) {
-            setTimeout(pollDemo, 3000);
-          } else {
-            setStatus('error');
-            setErrorMsg(t('Платёж ещё обрабатывается. Покупка будет завершена автоматически, как только ЮMoney подтвердит оплату. Если проблема сохраняется — свяжитесь с поддержкой.'));
-          }
-        };
+          // Если RPC не сработал сразу, начинаем поллинг (ждём вебхук)
+          setStatus('polling');
+          setPollCount(1);
+          let attempts = 0;
+          const maxAttempts = 20;
 
-        setTimeout(pollDemo, 3000);
+          const pollDemo = async () => {
+            attempts++;
+            setPollCount(attempts);
+
+            const { data: updatedPayRow } = await supabase
+              .from('payments')
+              .select('status')
+              .eq('id', demoPaymentId)
+              .maybeSingle();
+
+            if (updatedPayRow?.status === 'succeeded') {
+              await refreshProfile();
+              setStatus('done');
+              return;
+            }
+
+            if (attempts < maxAttempts) {
+              setTimeout(pollDemo, 3000);
+            } else {
+              setStatus('error');
+              setErrorMsg(t('Платёж ещё обрабатывается. Покупка будет завершена автоматически, как только ЮMoney подтвердит оплату.'));
+            }
+          };
+
+          setTimeout(pollDemo, 3000);
+        } else {
+          setStatus('error');
+          setErrorMsg(t('Платёж был отменён или не удалось его обработать.'));
+        }
         return;
       }
 
-      // ── Normal premium redirect path (no demoPaymentId) ───────────────
-      // This is the legacy/normal YooMoney quickpay redirect for a premium
-      // subscription. The webhook may have already granted premium, or it may
-      // still be processing. Try the server-side RPC, then poll the profile.
+      // ── Fallback: если нет demoPaymentId (старый редирект только для Premium) ──
       setStatus('activating');
       const { data: result } = await supabase.rpc('grant_premium_for_payment');
       if (result?.granted) {
@@ -93,11 +111,10 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
         return;
       }
 
-      // Check if premium was already granted by webhook
       await refreshProfile();
       const { data: currentProfile } = await supabase
         .from('profiles')
-        .select('is_premium, premium_expires_at')
+        .select('is_premium')
         .eq('id', session.user.id)
         .maybeSingle();
 
@@ -106,8 +123,6 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
         return;
       }
 
-      // Premium not yet granted — webhook may still be processing.
-      // Start polling: retry the RPC every 3 seconds for up to 60 seconds.
       setStatus('polling');
       let attempts = 0;
       const maxAttempts = 20;
@@ -116,9 +131,8 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
         attempts++;
         setPollCount(attempts);
 
-        const { data: result } = await supabase.rpc('grant_premium_for_payment');
-
-        if (result?.granted) {
+        const { data: pollResult } = await supabase.rpc('grant_premium_for_payment');
+        if (pollResult?.granted) {
           await refreshProfile();
           setStatus('done');
           return;
@@ -128,7 +142,7 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
           setTimeout(poll, 3000);
         } else {
           setStatus('error');
-          setErrorMsg(t('Платёж ещё обрабатывается. Premium активируется автоматически, как только ЮMoney подтвердит оплату. Если проблема сохраняется — свяжитесь с поддержкой.'));
+          setErrorMsg(t('Платёж ещё обрабатывается. Premium активируется автоматически.'));
         }
       };
 
@@ -142,7 +156,7 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
         <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full blur-3xl opacity-30 bg-gradient-to-br from-amber-400 to-orange-500" />
 
         <div className="relative mx-auto w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-pink-500 flex items-center justify-center shadow-2xl shadow-amber-500/30">
-          <Crown className="w-10 h-10 text-white" />
+          {isCoins ? <Coins className="w-10 h-10 text-white" /> : <Crown className="w-10 h-10 text-white" />}
         </div>
 
         {status === 'verifying' && (
@@ -157,8 +171,12 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
 
         {status === 'activating' && (
           <>
-            <h1 className="text-xl font-bold text-theme-text relative">{t('Активируем Premium...')}</h1>
-            <p className="text-sm text-theme-muted relative">{t('Платёж подтверждён. Включаем VIP-статус.')}</p>
+            <h1 className="text-xl font-bold text-theme-text relative">
+              {isCoins ? t('Зачисляем монеты...') : t('Активируем Premium...')}
+            </h1>
+            <p className="text-sm text-theme-muted relative">
+              {isCoins ? t('Платёж подтверждён. Обновляем баланс.') : t('Платёж подтверждён. Включаем VIP-статус.')}
+            </p>
             <div className="flex items-center justify-center py-2 relative">
               <Loader2 className="w-7 h-7 text-theme-warning animate-spin" />
             </div>
@@ -169,7 +187,7 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
           <>
             <h1 className="text-xl font-bold text-theme-text relative">{t('Ожидание подтверждения...')}</h1>
             <p className="text-sm text-theme-muted relative">
-              {t('Платёж получен. Ждём подтверждения от Юкассы')} (попытка {pollCount}/20)...
+              {t('Платёж получен. Ждём подтверждения от платёжной системы')} (попытка {pollCount}/20)...
             </p>
             <div className="flex items-center justify-center py-2 relative">
               <RefreshCw className="w-7 h-7 text-theme-warning animate-spin" />
@@ -179,10 +197,21 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
 
         {status === 'done' && (
           <>
-            <h1 className="text-xl font-bold text-theme-text relative">{t('Premium активирован!')}</h1>
-            <p className="text-sm text-theme-muted relative">
-              {t('VIP-статус открыт на 30 дней. Корона у аватара, 2x XP, эксклюзивные функции — всё включено.')}
-            </p>
+            {isCoins ? (
+              <>
+                <h1 className="text-xl font-bold text-theme-text relative">{t('Монеты зачислены!')}</h1>
+                <p className="text-sm text-theme-muted relative">
+                  {t('Баланс успешно пополнен. Теперь вы можете покупать сэмпл-паки и стикеры в магазине.')}
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-xl font-bold text-theme-text relative">{t('Premium активирован!')}</h1>
+                <p className="text-sm text-theme-muted relative">
+                  {t('VIP-статус открыт на 30 дней. Корона у аватара, 2x XP, эксклюзивные функции — всё включено.')}
+                </p>
+              </>
+            )}
             <div className="flex items-center justify-center gap-2 text-theme-success relative">
               <CheckCircle2 className="w-5 h-5" />
               <span className="font-bold">{t('Оплата подтверждена')}</span>
@@ -191,7 +220,8 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
               onClick={() => setPage('home')}
               className="w-full rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-amber-500/30 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 relative"
             >
-              <Music className="w-4 h-4" /> {t('На главную')} <ArrowRight className="w-4 h-4" />
+              {isCoins ? <Music className="w-4 h-4" /> : <Crown className="w-4 h-4" />} 
+              {t('На главную')} <ArrowRight className="w-4 h-4" />
             </button>
           </>
         )}
