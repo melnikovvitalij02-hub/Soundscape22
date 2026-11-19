@@ -175,9 +175,14 @@ export default function TrendingPage() {
           <p className="font-medium text-theme-text">{t('Как считается рейтинг')}</p>
           <p className="text-theme-muted mt-1">{t('Прослушивания + лайки x3 + очки буста')}</p>
         </div>
-        <div className="rounded-xl border border-theme-primary/30 bg-theme-primary/10 p-3 text-sm">
-          <p className="font-medium text-theme-text">{t('🗓 Ежемесячный сброс')}</p>
-          <p className="text-theme-muted mt-1">{t('Рейтинг и прослушивания обнуляются 1-го числа каждого месяца. Лайки и бусты остаются.')}</p>
+        <div className="rounded-xl border border-theme-primary/30 bg-theme-primary/10 p-4 flex items-start gap-3">
+          <Calendar className="w-5 h-5 text-theme-primary shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-medium text-theme-text">{t('🗓 Ежемесячный сброс рейтинга')}</p>
+            <p className="text-theme-muted mt-1">
+              {t('1-го числа каждого месяца счётчики прослушиваний и лайков обнуляются. Активные бусты продолжают действовать и сохраняют позиции трека до конца их срока.')}
+            </p>
+          </div>
         </div>
         <div className="rounded-xl border border-theme-border bg-theme-surface p-3">
           <p className="font-medium text-theme-text">{t('Топ-3 на сутки')}</p>
