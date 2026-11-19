@@ -1843,22 +1843,6 @@ const addTrack = (presetType?: TrackType) => {
                   onChange={(e) => setTrackVolume(track.id, Number(e.target.value))}
                   className="w-16 accent-theme-primary"
                 />
-                <div className="flex flex-col gap-0.5">
-                  <button
-                    onClick={() => copyPattern(track.id)}
-                    className="opacity-0 group-hover:opacity-100 text-theme-muted hover:text-theme-primary transition-opacity"
-                    title={t('Копировать')}
-                  >
-                    <Copy className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => pastePattern(track.id)}
-                    className="opacity-0 group-hover:opacity-100 text-theme-muted hover:text-theme-primary transition-opacity"
-                    title={t('Вставить')}
-                  >
-                    <Square className="w-3 h-3" />
-                  </button>
-                </div>
               </div>
             </div>
           ))}
