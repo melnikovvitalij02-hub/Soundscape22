@@ -7,7 +7,7 @@ import { STEPS, buildPattern, trackEffects } from '@/lib/beatPlayback';
 import { fetchTrendingBeats, recordBeatPlay, type TrendingBeat } from '@/lib/trending';
 import TrendingBoostModal from '@/components/TrendingBoostModal';
 import TrendingRow from '@/components/TrendingRow';
-import UploadBeatModal from '@/components/UploadBeatModal';
+//import UploadBeatModal from '@/components/UploadBeatModal';
 
 const REFRESH_MS = 60_000;
 const CLOCK_MS = 30_000;
@@ -223,16 +223,6 @@ export default function TrendingPage() {
           ))}
         </ol>
       )}
-
-      {<UploadBeatModal
-          onClose={() => setUploadOpen(false)}
-          onUploaded={(beatId) => {
-            setUploadOpen(false);
-            loadBeats();
-            openBoost(beatId);
-          }}
-        />
-      }
 
       {boostOpen && (
         <TrendingBoostModal
