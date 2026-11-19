@@ -143,7 +143,6 @@ export default function TrendingPage() {
   };
 
   const canBoost = Boolean(profile && !isGuest && profile.is_premium);
-  const canUpload = Boolean(profile && !isGuest && profile.is_premium);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
@@ -230,8 +229,7 @@ export default function TrendingPage() {
         </ol>
       )}
 
-      {uploadOpen && (
-        <UploadBeatModal
+      {<UploadBeatModal
           onClose={() => setUploadOpen(false)}
           onUploaded={(beatId) => {
             setUploadOpen(false);
@@ -239,7 +237,7 @@ export default function TrendingPage() {
             openBoost(beatId);
           }}
         />
-      )}
+      }
 
       {boostOpen && (
         <TrendingBoostModal
