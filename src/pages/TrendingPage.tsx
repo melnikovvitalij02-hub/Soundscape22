@@ -174,14 +174,6 @@ export default function TrendingPage() {
             </p>
           </div>
         </div>
-        <div className="rounded-xl border border-theme-border bg-theme-surface p-3">
-          <p className="font-medium text-theme-text">{t('Топ-3 на сутки')}</p>
-          <p className="text-theme-muted mt-1">{t('Три самых заметных места, 500 монет')}</p>
-        </div>
-        <div className="rounded-xl border border-theme-border bg-theme-surface p-3">
-          <p className="font-medium text-theme-text">{t('Вечный буст')}</p>
-          <p className="text-theme-muted mt-1">{t('Всегда в топ-10, всего 7 мест, 2000 монет')}</p>
-        </div>
       </div>
 
       {loading ? (
