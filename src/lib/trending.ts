@@ -12,8 +12,8 @@ export type PromotionOption = {
 
 export const PROMOTION_OPTIONS: PromotionOption[] = [
   { kind: 'boost_basic', price: 300, durationHours: 24, boostPoints: 100 },
-  { kind: 'boost_plus', price: 750, durationHours: 24, boostPoints: 250 },
-  { kind: 'boost_max', price: 1800, durationHours: 24, boostPoints: 600 },
+  { kind: 'boost_plus', price: 750, durationHours: 24, boostPoints: 300 },
+  { kind: 'boost_max', price: 1800, durationHours: 24, boostPoints: 900 },
   { kind: 'top3', price: 5500, durationHours: 24, boostPoints: 0 },
 ];
 
