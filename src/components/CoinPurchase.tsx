@@ -11,10 +11,12 @@ export type CoinPackage = {
 };
 
 export const DONATE_COIN_PACKAGES: CoinPackage[] = [
-  { id: 'coins_100', coins: 100, rub: 89, discount: null },
-  { id: 'coins_300', coins: 300, rub: 259, discount: 3 },
-  { id: 'coins_1000', coins: 1000, rub: 829, discount: 7 },
-  { id: 'coins_2500', coins: 2500, rub: 1979, discount: 12 },
+  { id: 'coins_300', coins: 300, rub: 369, discount: null },
+  { id: 'coins_500', coins: 500, rub: 559, discount: 10 },
+  { id: 'coins_2250', coins: 2250, rub: 2199, discount: 25 },
+  { id: 'coins_2250_prem', coins: 2250, rub: 2299, discount: null },
+  { id: 'coins_4500', coins: 4500, rub: 4199, discount: 32 },
+  { id: 'coins_4500_prem', coins: 4500, rub: 4299, discount: null },
 ];
 
 const YOOMONEY_WALLET = '4100119640056035';
@@ -112,7 +114,7 @@ export default function CoinPurchase() {
             <div className="flex items-start justify-between mb-3">
               <div className="coin-display">
                 <div className={`coin-row ${pkg.coins === 1000 ? 'stacked' : ''} ${pkg.coins === 2500 ? 'heavy-stacked' : ''}`}>
-                  {Array.from({ length: pkg.coins === 100 ? 1 : pkg.coins === 300 ? 3 : pkg.coins === 1000 ? 5 : 7 }).map((_, i) => (
+                  {Array.from({ length: pkg.coins === 300 ? 1 : pkg.coins === 500 ? 3 : pkg.coins === 2250 ? 5 : 7 }).map((_, i) => (
                     <Gem key={i} className="w-4 h-4 text-white"/>
                   ))}
                 </div>
