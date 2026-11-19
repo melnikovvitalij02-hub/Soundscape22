@@ -160,16 +160,6 @@ export default function TrendingPage() {
         </div>
       </header>
 
-      {!canUpload && (profile && !isGuest) && (
-        <div className="mb-6 rounded-xl border border-theme-warning/30 bg-theme-warning/10 p-4 flex items-start gap-3">
-          <Lock className="w-5 h-5 text-theme-warning shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="text-theme-text font-medium mb-1">{t('Добавление и продвижение треков — только для Premium')}</p>
-            <p className="text-theme-muted">{t('Оформите подписку Premium, чтобы продвигать треки в рейтинге')}</p>
-          </div>
-        </div>
-      )}
-
       <div className="mb-6 grid gap-3 sm:grid-cols-3 text-sm">
         <div className="rounded-xl border border-theme-border bg-theme-surface p-3">
           <p className="font-medium text-theme-text">{t('Как считается рейтинг')}</p>
