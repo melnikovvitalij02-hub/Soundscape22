@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Coins, Gem, Loader2, Gamepad2, AlertCircle, X, Crown, t } from 'lucide-react';
+import { Coins, Gem, Loader2, Gamepad2, AlertCircle, X, Crown } from 'lucide-react';
 
 export type CoinPackage = {
   id: string;
