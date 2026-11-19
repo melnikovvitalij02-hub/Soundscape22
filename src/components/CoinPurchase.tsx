@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useLocale } from '@/context/LocaleContext';
 import { supabase } from '@/lib/supabase';
 import { Coins, Gem, Loader2, Gamepad2, AlertCircle, X, Crown } from 'lucide-react';
 
@@ -25,6 +26,7 @@ const SUCCESS_URL = `${window.location.origin}/payment-success`;
 
 export default function CoinPurchase() {
   const { profile, isGuest } = useAuth();
+  const { t } = useLocale();
   const [loadingPkg, setLoadingPkg] = useState<string | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [confirmPkg, setConfirmPkg] = useState<CoinPackage | null>(null);
