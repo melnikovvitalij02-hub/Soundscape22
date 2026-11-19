@@ -908,13 +908,14 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                       <MessageCircle className="w-4 h-4" />
                       {cCount}
                     </button>
+                    {!ownBeat && (
                     <button
                       onClick={() => setSupportOpenFor(beat.id)}
-                      disabled={isOwnBeat}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-surface2 text-theme-muted hover:text-theme-warning transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
 >
                       <Gem className="w-4 h-4" /> {t('Поддержать')}
                     </button>
+                    )}
                     {isPaid ? (
                       ownedBeats.has(beat.id) ? (
                       <button onClick={() => downloadBeat(beat)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-success/15 text-theme-success hover:opacity-80">
@@ -942,7 +943,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                   </div>
 
                   {/* Support message input */}
-                  {!isOwnBeat && (
+                  {!ownBeat && (
                     <input
                       value={supportMsg[beat.id] || ''}
                       onChange={(e) => setSupportMsg((prev) => ({ ...prev, [beat.id]: e.target.value }))}
