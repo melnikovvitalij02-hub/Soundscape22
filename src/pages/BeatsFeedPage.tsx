@@ -1064,7 +1064,41 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
           </div>
         </div>
       )}
-
+      {editingBeat && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditingBeat(null)}>
+          <div className="bg-theme-surface border border-theme-border rounded-2xl p-6 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-theme-text font-semibold flex items-center gap-2"><Sliders className="w-5 h-5 text-theme-primary" /> {t('Настройки трека')}</h3>
+              <button onClick={() => setEditingBeat(null)} className="text-theme-muted hover:text-theme-text"><X className="w-5 h-5" /></button>
+            </div>
+            <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} placeholder={t('Описание')} className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm resize-none" />
+            <div className="grid grid-cols-2 gap-3">
+              <select value={editForm.download_access} onChange={(e) => setEditForm({ ...editForm, download_access: e.target.value })} className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm">
+                <option value="premium">{t('Скачивание: Premium')}</option>
+                <option value="paid">{t('Скачивание: За Gem')}</option>
+                <option value="nobody">{t('Скачивание: Никто')}</option>
+              </select>
+              <select value={editForm.comment_access} onChange={(e) => setEditForm({ ...editForm, comment_access: e.target.value })} className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm">
+                <option value="all">{t('Комментарии: Все')}</option>
+                <option value="premium">{t('Комментарии: Premium')}</option>
+                <option value="nobody">{t('Комментарии: Никто')}</option>
+              </select>
+            </div>
+            {editForm.download_access === 'paid' && (
+              <input type="number" min={100} value={editForm.price_gem} onChange={(e) => setEditForm({ ...editForm, price_gem: Math.max(100, Number(e.target.value) || 100) })} className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm" placeholder={t('Цена в Gem (мин. 100)')} />
+            )}
+            <label className="flex items-center gap-2 text-sm text-theme-text">
+              <input type="checkbox" checked={editForm.allow_copy} onChange={(e) => setEditForm({ ...editForm, allow_copy: e.target.checked })} className="accent-theme-primary" /> {t('Разрешить копировать проект')}
+            </label>
+            {profile?.is_premium && (
+              <label className="flex items-center gap-2 text-sm text-theme-primary">
+                <input type="checkbox" checked={editForm.is_hot} onChange={(e) => setEditForm({ ...editForm, is_hot: e.target.checked })} className="accent-theme-primary" /> 🔥 {t('Горячий трек')}
+              </label>
+            )}
+            <button onClick={saveBeatSettings} className="w-full py-2.5 bg-theme-primary text-white rounded-xl text-sm font-semibold">{t('Сохранить')}</button>
+          </div>
+        </div>
+      )}
       {playingBeat && (
         <div className="fixed bottom-4 right-4 z-40 glass-surface bg-theme-surface/90 border border-theme-border rounded-xl px-4 py-2 flex items-center gap-3">
           <Music className="w-4 h-4 text-theme-primary animate-pulse" />
