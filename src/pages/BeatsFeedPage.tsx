@@ -26,8 +26,7 @@ import {
   Eye,
   Trash2,
   Star,
-  Sliders,
-  Copy
+  Sliders
 } from 'lucide-react';
 import { makeSound, type TrackType } from '@/pages/BeatComposerPage';
 import { STEPS, buildPattern, trackEffects, type SavedTrack } from '@/lib/beatPlayback';
@@ -128,11 +127,6 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
   const audioChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<number | null>(null);
   const recorderStartRef = useRef<number>(0);
-
-  const copyBeatToComposer = (beat: Beat) => {
-  localStorage.setItem('copied_beat', JSON.stringify(beat.data));
-  window.location.href = '/beat'; // или setPage('beat')
-  };
 
   const [editingBeat, setEditingBeat] = useState<Beat | null>(null);
   const [editForm, setEditForm] = useState({ description: '', download_access: 'premium', comment_access: 'all', price_gem: 100, price_coin: 1000, is_hot: false });
@@ -683,21 +677,6 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       if (isPaid) { setStatus(t('Сначала купите этот бит')); setTimeout(()     => setStatus(null), 3000); return; }
       if (profile?.is_premium !== true) { setStatus(t('Скачивание — только для Premium')); setTimeout(() => setStatus(null), 3000); return; }
     }
-  const copyBeatToComposer = (beat: Beat) => {
-    if (!beat.data) {
-      setStatus(t('У этого бита нет данных для копирования'));
-      setTimeout(() => setStatus(null), 2500);
-      return;
-    }
-    localStorage.setItem('copied_beat_project', JSON.stringify({
-      tracks: beat.data.tracks,
-      bpm: beat.data.bpm || beat.bpm,
-      bars: beat.data.bars || 1,
-      genre: beat.genre,
-      name: `${beat.title} (копия)`,
-    }));
-    setPage('beat');
-  };
 
     const tracks = beat.data?.tracks;
     try {
@@ -911,11 +890,6 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                               >
                                 <Edit2 className="w-4 h-4" /> {t('Переименовать')}
                               </button>
-                              {beat.allow_copy !== false && (
-                                <button onClick={() => { copyBeatToComposer(beat); setMenuOpenBeatId(null); }} className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2">
-                                  <Copy className="w-4 h-4" /> {t('Скопировать проект')}
-                                </button>
-                              )}
                               <div className="border-t border-theme-border my-1" />
                               <button onClick={() => deleteBeat(beat)} className="w-full px-3 py-2 text-left text-sm text-theme-danger hover:bg-theme-danger/10 flex items-center gap-2">
                                 <Trash2 className="w-4 h-4" /> {t('Удалить')}
