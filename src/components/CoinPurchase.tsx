@@ -8,15 +8,16 @@ export type CoinPackage = {
   coins: number;
   rub: number;
   discount: number | null;
+  includesPremium?: boolean;
 };
 
 export const DONATE_COIN_PACKAGES: CoinPackage[] = [
-  { id: 'coins_300', coins: 300, rub: 369, discount: null },
-  { id: 'coins_500', coins: 500, rub: 559, discount: 10 },
-  { id: 'coins_2250', coins: 2250, rub: 2199, discount: 25 },
-  { id: 'coins_2250_prem', coins: 2250, rub: 2299, discount: null },
-  { id: 'coins_4500', coins: 4500, rub: 4199, discount: 32 },
-  { id: 'coins_4500_prem', coins: 4500, rub: 4299, discount: null },
+  { id: 'coins_300', coins: 300, rub: 369, discount: null, includesPremium: false},
+  { id: 'coins_500', coins: 500, rub: 559, discount: 10, includesPremium: false },
+  { id: 'coins_2250', coins: 2250, rub: 2199, discount: 25, includesPremium: false },
+  { id: 'coins_2250_prem', coins: 2250, rub: 2299, discount: null, includesPremium: true },
+  { id: 'coins_4500', coins: 4500, rub: 4199, discount: 32, includesPremium: false },
+  { id: 'coins_4500_prem', coins: 4500, rub: 4299, discount: null, includesPremium: true },
 ];
 
 const YOOMONEY_WALLET = '4100119640056035';
@@ -34,6 +35,8 @@ export default function CoinPurchase() {
     setLoadingPkg(pkg.id);
 
     const label = `${pkg.id}_${profile.id}`;
+    const paymentType = pkg.includesPremium ? 'premium_bundle' : 'coins';
+    
     const { data: purchase, error } = await supabase
       .from('coin_purchases')
       .insert({
@@ -60,7 +63,7 @@ export default function CoinPurchase() {
         amount: pkg.rub,
         status: 'pending',
         label,
-        payment_type: 'coins',
+        payment_type: paymentType,
       })
       .select('id')
       .maybeSingle();
@@ -73,6 +76,9 @@ export default function CoinPurchase() {
 
     setLoadingPkg(null);
     const demoPaymentId = payment.id;
+    const commentText = pkg.includesPremium 
+      ? `Покупка ${pkg.coins} монет + Premium` 
+      : `Покупка ${pkg.coins} донат-монет`;
     window.location.href = `https://yoomoney.ru/quickpay/confirm.xml?receiver=${YOOMONEY_WALLET}&sum=${pkg.rub}&label=${label}&comment=${encodeURIComponent('Покупка ' + pkg.coins + ' донат-монет')}&quickpay-form=shop&paymentType=AC&successURL=${encodeURIComponent(`${SUCCESS_URL}?demoPaymentId=${demoPaymentId}`)}`;
   };
 
@@ -119,11 +125,18 @@ export default function CoinPurchase() {
                   ))}
                 </div>
               </div>
-              {pkg.discount !== null && (
-                <span className="px-2 py-1 bg-theme-danger/20 text-theme-danger text-xs font-bold rounded-full">
-                  −{pkg.discount}%
-                </span>
-              )}
+              <div className="flex flex-col gap-1 items-end">
+                {pkg.discount !== null && (
+                  <span className="px-2 py-1 bg-theme-danger/20 text-theme-danger text-xs font-bold rounded-full">
+                    −{pkg.discount}%
+                  </span>
+                )}
+                {pkg.includesPremium && (
+                  <span className="px-2 py-1 bg-theme-primary/20 text-theme-primary text-xs font-bold rounded-full flex items-center gap-1">
+                    <Crown className="w-3 h-3" /> {t('Включает Premium')}
+                  </span>
+                )}
+              </div>
             </div>
             <h3 className="text-theme-text font-bold text-lg">{pkg.coins} донат-монет</h3>
             <p className="text-theme-muted text-sm mb-4">Премиум-валюта</p>
