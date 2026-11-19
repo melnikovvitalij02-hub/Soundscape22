@@ -1087,9 +1087,6 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
             {editForm.download_access === 'paid' && (
               <input type="number" min={100} value={editForm.price_gem} onChange={(e) => setEditForm({ ...editForm, price_gem: Math.max(100, Number(e.target.value) || 100) })} className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm" placeholder={t('Цена в Gem (мин. 100)')} />
             )}
-            <label className="flex items-center gap-2 text-sm text-theme-text">
-              <input type="checkbox" checked={editForm.allow_copy} onChange={(e) => setEditForm({ ...editForm, allow_copy: e.target.checked })} className="accent-theme-primary" /> {t('Разрешить копировать проект')}
-            </label>
             {profile?.is_premium && (
               <label className="flex items-center gap-2 text-sm text-theme-primary">
                 <input type="checkbox" checked={editForm.is_hot} onChange={(e) => setEditForm({ ...editForm, is_hot: e.target.checked })} className="accent-theme-primary" /> 🔥 {t('Горячий трек')}
