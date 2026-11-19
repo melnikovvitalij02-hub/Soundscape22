@@ -567,70 +567,38 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     }
   };
 
-  const support = async (beat: Beat) => {
-  if (!profile || isGuest) return;
-  if (isOwnBeat) return;
-  
-  const amount = supportAmount;
-  const currency = supportCurrency;
-  const balanceField = currency === 'gem' ? 'donate_coins' : 'coins';
-  const currentBalance = currency === 'gem' ? (profile.donate_coins ?? 0) : (profile.coins ?? 0);
-  
-  if (currentBalance < amount) {
-    setStatus(t(`Недостаточно ${currency === 'gem' ? 'Gem' : 'монет'}`));
-    return;
-  }
+    const support = async (beat: Beat) => {
+    if (!profile || isGuest) return;
+    if (isOwnBeat(beat)) return; // ← было if (isOwnBeat) — вечный return
 
-  const msg = (supportMsg[beat.id] || '').trim();
-    const { error } = await supabase.from('support_donations').insert({
-      supporter_id: profile.id,
-      creator_id: beat.user_id,
-      amount: amount,
-      currency: currency,
-      message: msg,
-    });
-
-    if (error) {
-      setStatus(t('Ошибка при поддержке'));
+    const amount = supportAmount;
+    const currency = supportCurrency;
+    const currentBalance = currency === 'gem' ? (profile.donate_coins ?? 0) : (profile.coins ?? 0);
+    if (currentBalance < amount) {
+      setStatus(t(`Недостаточно ${currency === 'gem' ? 'Gem' : 'монет'}`));
       return;
     }
 
-    // Списываем баланс
-    await supabase.from('profiles')
-      .update({ [balanceField]: currentBalance - amount })
-      .eq('id', profile.id);
+    const msg = (supportMsg[beat.id] || '').trim();
+    const { data, error } = await supabase.rpc('support_beat_author', {
+      p_beat_id: beat.id,
+      p_amount: amount,
+      p_currency: currency,
+      p_message: msg,
+    });
+
+    if (error || !data?.ok) {
+      setStatus(t(data?.reason === 'insufficient' ? 'Недостаточно средств' : 'Ошибка при поддержке'));
+      return;
+    }
 
     await refreshProfile();
     setSupportOpenFor(null);
     setSupportAmount(100);
     setSupportCurrency('coin');
     setSupportMsg((prev) => ({ ...prev, [beat.id]: '' }));
-    setStatus(t(`Поддержка ${amount} ${currency === 'gem' ? 'Gem' : 'монет'} отправлена!`));
-    setTimeout(() => setStatus(null), 2500);
-  };
-
-  const submitRemix = async (beat: Beat) => {
-    if (!profile || isGuest) return;
-    if (!remixTitle.trim() || !remixUrl.trim()) {
-      setStatus(t('Заполните название и ссылку на ремикс'));
-      return;
-    }
-    const { error } = await supabase.from('remixes').insert({
-      original_beat_id: beat.id,
-      remixer_id: profile.id,
-      title: remixTitle.trim(),
-      audio_url: remixUrl.trim(),
-    });
-    if (error) {
-      setStatus(t('Ошибка при создании ремикса'));
-      return;
-    }
-    setShowRemixFor(null);
-    setRemixTitle('');
-    setRemixUrl('');
-    await addXp(20);
-    setStatus(t('Ремикс создан! +20 XP'));
-    setTimeout(() => setStatus(null), 2500);
+    setStatus(t(`Отправлено ${amount} ${currency === 'gem' ? 'Gem' : 'монет'} · автор получит ${data.creator_received}`));
+    setTimeout(() => setStatus(null), 3000);
   };
 
   const renameBeat = async (beat: Beat) => {
