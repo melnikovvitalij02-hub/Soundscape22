@@ -186,6 +186,11 @@ export default function TrendingPage() {
         </div>
       </div>
 
+              <div className="rounded-xl border border-theme-primary/30 bg-theme-primary/10 p-3 text-sm">
+          <p className="font-medium text-theme-text">{t('🗓 Ежемесячный сброс')}</p>
+          <p className="text-theme-muted mt-1">{t('Рейтинг и прослушивания обнуляются 1-го числа каждого месяца. Лайки и бусты остаются.')}</p>
+        </div>
+
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-theme-muted">
           <Loader2 className="w-4 h-4 animate-spin" /> {t('Считаем рейтинг')}
