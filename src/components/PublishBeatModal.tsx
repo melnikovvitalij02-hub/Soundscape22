@@ -181,10 +181,6 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
           {profile?.is_premium && isComposerMode && (
             <label className="flex items-center gap-3 p-3 rounded-xl border border-theme-primary/30 bg-theme-primary/10 cursor-pointer">
               <input type="checkbox" checked={isHot} disabled={submitting} onChange={(e) => setIsHot(e.target.checked)} className="w-4 h-4 accent-theme-primary" />
-              <label className="flex items-center gap-3 p-3 rounded-xl border border-theme-border bg-theme-surface2 cursor-pointer">
-                <input type="checkbox" checked={allowCopy} disabled={submitting} onChange={(e) => setAllowCopy(e.target.checked)} className="w-4 h-4 accent-theme-primary" />
-                <span className="text-sm font-medium text-theme-text">{t('Разрешить другим пользователям копировать проект')}</span>
-              </label>
               <span className="text-sm font-medium text-theme-primary flex items-center justify-center gap-1"><Flame className="w-4 h-4" /> {t('Горячий трек')}</span>
             </label>
           )}
