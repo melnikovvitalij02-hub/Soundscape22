@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Flame, Loader2, RefreshCw, Trophy, Upload, Zap, Lock } from 'lucide-react';
+import { Flame, Loader2, RefreshCw, Trophy, Upload, Zap, Lock, Calendar } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLocale } from '@/context/LocaleContext';
 import { makeSound, type TrackType } from '@/pages/BeatComposerPage';
