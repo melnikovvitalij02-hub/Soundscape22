@@ -176,6 +176,10 @@ export default function TrendingPage() {
           <p className="font-medium text-theme-text">{t('Как считается рейтинг')}</p>
           <p className="text-theme-muted mt-1">{t('Прослушивания + лайки x3 + очки буста')}</p>
         </div>
+        <div className="rounded-xl border border-theme-primary/30 bg-theme-primary/10 p-3 text-sm">
+          <p className="font-medium text-theme-text">{t('🗓 Ежемесячный сброс')}</p>
+          <p className="text-theme-muted mt-1">{t('Рейтинг и прослушивания обнуляются 1-го числа каждого месяца. Лайки и бусты остаются.')}</p>
+        </div>
         <div className="rounded-xl border border-theme-border bg-theme-surface p-3">
           <p className="font-medium text-theme-text">{t('Топ-3 на сутки')}</p>
           <p className="text-theme-muted mt-1">{t('Три самых заметных места, 500 монет')}</p>
@@ -185,11 +189,6 @@ export default function TrendingPage() {
           <p className="text-theme-muted mt-1">{t('Всегда в топ-10, всего 7 мест, 2000 монет')}</p>
         </div>
       </div>
-
-              <div className="rounded-xl border border-theme-primary/30 bg-theme-primary/10 p-3 text-sm">
-          <p className="font-medium text-theme-text">{t('🗓 Ежемесячный сброс')}</p>
-          <p className="text-theme-muted mt-1">{t('Рейтинг и прослушивания обнуляются 1-го числа каждого месяца. Лайки и бусты остаются.')}</p>
-        </div>
 
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-theme-muted">
