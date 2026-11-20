@@ -18,7 +18,10 @@ import {
   Zap,
   Shield,
   Gamepad2,
+  Send,
 } from 'lucide-react';
+
+const TELEGRAM_URL = 'https://t.me/soundscapepro';
 
 const stars = [
   { left: '8%', top: '18%', size: 2, delay: '0s' },
@@ -186,6 +189,19 @@ export default function AboutPage({ setPage }: { setPage: (p: Page) => void }) {
               <ArrowDown size={15} />
             </button>
           </div>
+          <a
+            href={TELEGRAM_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="soundscape-telegram-banner"
+          >
+            <Send size={18} />
+            <span>
+              {t('Следите за обновлениями в нашем Telegram-канале')}
+              <strong>t.me/soundscapepro</strong>
+            </span>
+            <ArrowRight size={14} />
+          </a>
         </div>
 
         <div className="soundscape-vertical-label">SOUNDSCAPE PRO · 2026</div>
@@ -405,6 +421,15 @@ export default function AboutPage({ setPage }: { setPage: (p: Page) => void }) {
         <p style={{ fontSize: '0.8rem', color: 'rgba(232,232,240,0.3)' }}>
           {t('© 2026 Soundscape Pro. Музыка, которая живёт внутри тебя.')}
         </p>
+        <a
+          href={TELEGRAM_URL}
+          target="_blank"
+          rel="noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '0.85rem', fontWeight: 600, color: '#00e5d0', textDecoration: 'none' }}
+        >
+          <Send size={14} />
+          t.me/soundscapepro
+        </a>
       </footer>
     </div>
   );

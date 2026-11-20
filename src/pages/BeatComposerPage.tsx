@@ -894,17 +894,19 @@ function Visualizer({ analyserRef }: { analyserRef: React.RefObject<AnalyserNode
       ctx2d.fillStyle = 'rgba(10, 14, 39, 0.85)';
       ctx2d.fillRect(0, 0, w, h);
 
+      // Theme-aware colors read from CSS variables on the canvas element
+      const cs = getComputedStyle(canvas);
+      const primary = cs.getPropertyValue('--color-primary').trim() || '#4FACFE';
+      const accent = cs.getPropertyValue('--color-accent').trim() || '#7CC3FF';
       const barWidth = Math.max(2, Math.floor((w / bufferLength) * 2.5));
       let x = 0;
       for (let i = 0; i < bufferLength; i++) {
         const barHeight = Math.round((dataArray[i] / 255) * h);
-        const y = h - barHeight;
         const top = h - barHeight;
-        // Solid two-tone fill: vibrant top, deep base — no soft gradient blur
-        ctx2d.fillStyle = '#0ea5e9';
+        // Solid two-tone fill: theme base, theme accent cap
+        ctx2d.fillStyle = primary;
         ctx2d.fillRect(x, top, barWidth, barHeight);
-        // Hard bright cap on top edge
-        ctx2d.fillStyle = barHeight > 3 ? '#ec4899' : '#6366f1';
+        ctx2d.fillStyle = accent;
         ctx2d.fillRect(x, top, barWidth, Math.min(4, barHeight));
         x += barWidth + 1;
       }
@@ -1357,6 +1359,21 @@ const addTrack = (presetType?: TrackType) => {
   };
 
 
+  const deleteProject = async (projectId: string) => {
+    if (!confirm(t('Удалить проект навсегда?'))) return;
+    try {
+      const { error } = await supabase.from('projects').delete().eq('id', projectId).eq('user_id', profile?.id ?? '');
+      if (error) throw error;
+      const localProjects = JSON.parse(localStorage.getItem('beat_projects') || '[]').filter((p: { id: string }) => p.id !== projectId);
+      localStorage.setItem('beat_projects', JSON.stringify(localProjects));
+      setSavedProjects((prev) => prev.filter((p) => p.id !== projectId));
+      setSaveStatus(t('Проект удалён'));
+    } catch {
+      setSaveStatus(t('Не удалось удалить проект'));
+    }
+    setTimeout(() => setSaveStatus(null), 3000);
+  };
+
   const loadProject = async (projectId: string) => {
     const { data, error } = await supabase
       .from('projects')
@@ -1528,7 +1545,7 @@ const addTrack = (presetType?: TrackType) => {
         <div className="control-row">
           <button
             onClick={isPlaying ? stop : () => play()}
-            className="bg-gradient-to-br from-[#10B981] to-[#059669] text-white font-bold rounded-[10px] px-[22px] py-[10px] shadow-[0_4px_14px_rgba(16,185,129,0.3)] hover:-translate-y-[1px] hover:shadow-[0_6px_20px_rgba(16,185,129,0.4)] transition-all flex items-center gap-2 shrink-0"
+            className="bg-gradient-to-br from-theme-primary to-theme-primary-hover text-white font-bold rounded-[10px] px-[22px] py-[10px] shadow-[0_4px_14px_rgba(var(--color-primary-rgb),0.3)] hover:-translate-y-[1px] hover:shadow-[0_6px_20px_rgba(var(--color-primary-rgb),0.4)] transition-all flex items-center gap-2 shrink-0"
           >
             {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
             {isPlaying ? t('Стоп') : t('Играть')}
@@ -1624,7 +1641,7 @@ const addTrack = (presetType?: TrackType) => {
 
         {/* Bottom row: genres */}
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: '#8FB5A6' }}>{t('Жанр')}</span>
+          <span className="text-[10px] uppercase tracking-widest font-semibold text-theme-muted">{t('Жанр')}</span>
           <div className="flex flex-wrap gap-2">
             {GENRES.map((g) => (
               <button
@@ -1632,7 +1649,7 @@ const addTrack = (presetType?: TrackType) => {
                 onClick={() => loadDemoBeat(g)}
                 className={`px-[14px] py-[6px] rounded-[20px] text-[12.5px] font-medium transition-colors ${
                   genre === g
-                    ? 'bg-gradient-to-br from-[#F97316] to-[#EA580C] text-white shadow-[0_4px_12px_rgba(249,115,22,0.35)]'
+                    ? 'bg-gradient-to-br from-theme-primary to-theme-primary-hover text-white shadow-[0_4px_12px_rgba(var(--color-primary-rgb),0.35)]'
                     : 'bg-theme-surface2 text-theme-muted hover:bg-theme-border hover:text-theme-text'
                 }`}
               >
@@ -2229,7 +2246,7 @@ const addTrack = (presetType?: TrackType) => {
               </p>
               <button
                 onClick={saveProject}
-                className="bg-gradient-to-br from-[#F97316] to-[#EA580C] text-white font-bold rounded-lg px-5 py-2.5 text-[13px] shadow-[0_4px_14px_rgba(249,115,22,0.3)] hover:-translate-y-[1px] hover:shadow-[0_6px_20px_rgba(249,115,22,0.4)] transition-all"
+                className="bg-gradient-to-br from-theme-primary to-theme-primary-hover text-white font-bold rounded-lg px-5 py-2.5 text-[13px] shadow-[0_4px_14px_rgba(var(--color-primary-rgb),0.3)] hover:-translate-y-[1px] hover:shadow-[0_6px_20px_rgba(var(--color-primary-rgb),0.4)] transition-all"
               >
                 {t('Создать первый проект')}
               </button>
@@ -2237,14 +2254,22 @@ const addTrack = (presetType?: TrackType) => {
           ) : (
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {savedProjects.map((p) => (
-                <button
+                <div
                   key={p.id}
-                  onClick={() => loadProject(p.id)}
                   className="w-full flex items-center justify-between px-3 py-2 bg-theme-surface2 rounded-lg hover:bg-theme-border transition-colors text-left"
                 >
-                  <span className="text-sm text-theme-text truncate">{p.name}</span>
-                  <Play className="w-3.5 h-3.5 text-theme-muted shrink-0 ml-2" />
-                </button>
+                  <button onClick={() => loadProject(p.id)} className="flex-1 flex items-center gap-2 min-w-0 text-left">
+                    <span className="text-sm text-theme-text truncate">{p.name}</span>
+                    <Play className="w-3.5 h-3.5 text-theme-muted shrink-0" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}
+                    className="p-1 text-theme-muted hover:text-theme-danger transition-colors shrink-0 ml-2"
+                    title={t('Удалить проект')}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ))}
             </div>
           )}

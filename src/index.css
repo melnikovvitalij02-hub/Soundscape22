@@ -1204,6 +1204,35 @@ body::after {
   color: #00e5d0;
   border-color: #00e5d0;
 }
+.soundscape-telegram-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+  padding: 12px 22px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(232, 232, 240, 0.75);
+  background: rgba(0, 229, 208, 0.07);
+  border: 1px solid rgba(0, 229, 208, 0.3);
+  border-radius: 100px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+.soundscape-telegram-banner svg {
+  color: #00e5d0;
+}
+.soundscape-telegram-banner strong {
+  margin-left: 6px;
+  font-weight: 600;
+  color: #00e5d0;
+}
+.soundscape-telegram-banner:hover {
+  background: rgba(0, 229, 208, 0.14);
+  border-color: #00e5d0;
+  color: #f5f5fa;
+  transform: translateY(-2px);
+}
 .soundscape-vertical-label {
   position: absolute;
   right: 3vw;

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, xpProgress, type Achievement, type Friendship, type Profile, type Beat, type ProfileComment, PROFILE_COMMENT_COST_COINS } from '@/lib/supabase';
 import PremiumButton from '@/components/PremiumButton';
+import MessagePrivacyModal from '@/components/MessagePrivacyModal';
 import { useLocale } from '@/context/LocaleContext';
 import {
   User,
@@ -15,6 +16,7 @@ import {
   Search,
   UserPlus,
   UserCheck,
+  Shield,
   Check,
   Clock,
   ImageIcon,
@@ -80,6 +82,7 @@ export default function ProfilePage({
   const [menuOpenBeatId, setMenuOpenBeatId] = useState<string | null>(null);
   const [renamingBeat, setRenamingBeat] = useState<Beat | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showMessage = (msg: string) => {
@@ -771,6 +774,31 @@ export default function ProfilePage({
           </div>
         </div>
       </div>
+
+      {/* Privacy settings */}
+      {!isViewingOther && !isGuest && (
+        <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h3 className="text-sm font-medium text-theme-text flex items-center gap-2">
+                <Shield className="w-4 h-4 text-theme-primary" />
+                {t('Приватность и доступ')}
+              </h3>
+              <p className="text-xs text-theme-muted mt-1">
+                {t('Кто может писать вам, звонить и отправлять заявки в друзья, а также чёрный список')}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowPrivacy(true)}
+              className="px-4 py-2 bg-theme-surface2 border border-theme-border text-theme-text rounded-lg text-sm font-medium hover:border-theme-primary transition-colors shrink-0"
+            >
+              {t('Открыть настройки')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showPrivacy && <MessagePrivacyModal onClose={() => setShowPrivacy(false)} />}
 
       {/* Pending friend requests */}
       {pendingRequests.length > 0 && (

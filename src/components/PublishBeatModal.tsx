@@ -102,6 +102,33 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
         beat_data = { tracks: composerData.tracks, bpm: composerData.bpm, bars: composerData.bars, genre: composerData.genre };
       }
 
+      // Republish with the same title updates the existing beat instead of failing
+      const { data: existing } = await supabase
+        .from('beats')
+        .select('id')
+        .eq('user_id', profile.id)
+        .ilike('title', title.trim())
+        .maybeSingle();
+
+      if (existing) {
+        const { error: updErr } = await supabase.from('beats').update({
+          title: title.trim(),
+          genre: genre.trim() || 'Не указан',
+          bpm,
+          ...(audio_url ? { audio_url } : {}),
+          ...(beat_data ? { data: beat_data } : {}),
+          description: description.trim() || null,
+          download_access: downloadAccess,
+          comment_access: commentAccess,
+          price_gem: downloadAccess === 'paid' ? priceGem : 0,
+          is_hot: isComposerMode && profile.is_premium ? isHot : false,
+          is_public: true,
+        }).eq('id', (existing as { id: string }).id).eq('user_id', profile.id).select('id').maybeSingle();
+        if (updErr) throw updErr;
+        onPublished((existing as { id: string }).id);
+        return;
+      }
+
       const { data: beat, error: insErr } = await supabase.from('beats').insert({
         user_id: profile.id,
         title: title.trim(),
@@ -114,10 +141,9 @@ export default function PublishBeatModal({ onClose, onPublished, composerData }:
         download_access: downloadAccess,
         comment_access: commentAccess,
         price_gem: downloadAccess === 'paid' ? priceGem : 0,
-        price_coin : 0,
+        price_coin: 0,
         is_hot: isComposerMode && profile.is_premium ? isHot : false,
         is_public: true,
-        allow_copy: allowCopy,
       }).select('id').maybeSingle();
 
       if (insErr || !beat) throw insErr;
