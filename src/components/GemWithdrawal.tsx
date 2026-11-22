@@ -25,29 +25,17 @@ export default function GemWithdrawal() {
     if (!profile || isGuest || !validAmount || !details.trim()) return;
     setError(null); setLoading(true);
     try {
-    // 1. Проверка баланса
-      if (gems > (profile.donate_coins ?? 0)) throw new Error('Недостаточно Gem');
-    // 2. Нет активной заявки?
-      const { data: pending } = await supabase.from('withdrawal_requests')
-        .select('id').eq('user_id', profile.id).eq('status', 'pending').maybeSingle();
-      if (pending) throw new Error('Уже есть активная заявка');
-    // 3. Списываем гемы
-      const { error: upErr } = await supabase.from('profiles')
-        .update({ donate_coins: (profile.donate_coins ?? 0) - gems })
-        .eq('id', profile.id);
-      if (upErr) throw upErr;
-    // 4. Создаём заявку
-      const rub = Math.round(gems * 0.7 * 100) / 100;
-      const { error: insErr } = await supabase.from('withdrawal_requests').insert({
-        user_id: profile.id,
-        coins_amount: gems,
-        rub_amount: rub,
-        payment_details: details.trim(),
-        status: 'pending',
+      // The database function checks the balance, pending requests, debits
+      // the Gems and creates the request atomically on the server.
+      const { data, error: rpcErr } = await supabase.rpc('request_withdrawal', {
+        p_coins_amount: gems,
+        p_payment_details: details.trim(),
       });
-      if (insErr) throw insErr;
+      if (rpcErr) throw rpcErr;
+      const result = data as { error?: string; rub_amount?: number };
+      if (result?.error) throw new Error(result.error);
       await refreshProfile();
-      setSuccess(`Заявка на ${gems} Gem (${rub.toFixed(2)} ₽) создана.`);
+      setSuccess(`Заявка на ${gems} Gem (${(result?.rub_amount ?? gems * GEM_TO_RUB).toFixed(2)} ₽) создана. Деньги придут на карту автоматически.`);
       setAmount(''); setDetails('');
     } catch (e: any) { setError(e.message || 'Ошибка'); }
     finally { setLoading(false); }
