@@ -25,13 +25,13 @@
       "hasChanged": false,
       "hash": "56135177d375d076313588f32b438015c6d49d96e6369f7afc7a39398024cfe6"
     },
+    "yoomoney-payout": {
+      "hasChanged": false,
+      "hash": "ab62aa814877ff512ffbceb6c56b4da482607904c2ae433b8a2030ba2d657a61"
+    },
     "yoomoney-webhook": {
       "hasChanged": false,
       "hash": "5042ae1fd9313143ad32dca7c2b4c7d1b968db7b72ef43a60d577f1dd6a76bde"
-    },
-    "yoomoney-payout": {
-      "hasChanged": false,
-      "hash": "adfe96a5080610e8022c75d7b88ebdff6c621950f4ea940ea8d94302fbb86dda"
     }
   }
 }
