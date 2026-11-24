@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import CoinPurchase from '@/components/CoinPurchase';
 import { useLocale } from '@/context/LocaleContext';
-import GemWithdrawal from '@/components/GemWithdrawal';
 import PurchaseHistory from '@/components/PurchaseHistory';
 import StickerChest from '@/components/StickerChest';
 
@@ -268,7 +267,6 @@ export default function ShopPage() {
     if (activeTab === 'coins') return (
       <div className="space-y-6">
         <CoinPurchase />
-        <GemWithdrawal />
       </div>
     );
     if (activeTab === 'history') return <PurchaseHistory />;

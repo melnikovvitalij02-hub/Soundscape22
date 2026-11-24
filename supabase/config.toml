@@ -4,9 +4,6 @@ verify_jwt = false
 [functions.yoomoney-webhook]
 verify_jwt = false
 
-[functions.yoomoney-payout]
-verify_jwt = false
-
 [functions.rate-limit]
 verify_jwt = false
 
