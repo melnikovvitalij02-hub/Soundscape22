@@ -31,6 +31,7 @@ import {
 import { makeSound, type TrackType } from '@/pages/BeatComposerPage';
 import { STEPS, buildPattern, trackEffects, type SavedTrack } from '@/lib/beatPlayback';
 import { downloadAudioFile, renderSequencerMp3, saveBlob, safeFileName } from '@/lib/beatDownload';
+import { reachGoal } from '@/lib/metrika';
 
 type Beat = {
   id: string;
@@ -651,11 +652,13 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       if (beat.audio_url) {
         setStatus(t('Скачивание аудиофайла...'));
         await downloadAudioFile(beat.audio_url, beat.title);
+        reachGoal('beat_download');
         setStatus(null);
       } else if (tracks && tracks.length > 0) {
         setStatus(t('Рендеринг бита в MP3 (это может занять несколько секунд)...'));
         const mp3 = await renderSequencerMp3(tracks, beat.data?.bpm ||             beat.bpm || 120, beat.data?.bars || 1);
         saveBlob(mp3, `${safeFileName(beat.title)}.mp3`);
+        reachGoal('beat_download');
         setStatus(t('Скачивание началось!'));
         setTimeout(() => setStatus(null), 2500);
       } else {

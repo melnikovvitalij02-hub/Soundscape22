@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useLocale } from '@/context/LocaleContext';
 import { supabase } from '@/lib/supabase';
+import { reachGoal } from '@/lib/metrika';
 import { CheckCircle2, Loader2, Crown, ArrowRight, Music, XCircle, RefreshCw, Coins } from 'lucide-react';
 import type { Page } from '@/components/Sidebar';
 
@@ -46,6 +47,7 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
         if (payRow.status === 'succeeded') {
           // Уже обработано (например, вебхуком)
           await refreshProfile();
+          reachGoal('purchase');
           setStatus('done');
           return;
         }
@@ -60,6 +62,7 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
 
           if (demoResult?.granted) {
             await refreshProfile();
+            reachGoal('purchase');
             setStatus('done');
             return;
           }
@@ -82,6 +85,7 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
 
             if (updatedPayRow?.status === 'succeeded') {
               await refreshProfile();
+              reachGoal('purchase');
               setStatus('done');
               return;
             }
@@ -107,6 +111,7 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
       const { data: result } = await supabase.rpc('grant_premium_for_payment');
       if (result?.granted) {
         await refreshProfile();
+        reachGoal('purchase');
         setStatus('done');
         return;
       }
@@ -119,6 +124,7 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
         .maybeSingle();
 
       if (currentProfile?.is_premium) {
+        reachGoal('purchase');
         setStatus('done');
         return;
       }
@@ -134,6 +140,7 @@ export default function PaymentSuccessPage({ setPage }: { setPage: (p: Page) => 
         const { data: pollResult } = await supabase.rpc('grant_premium_for_payment');
         if (pollResult?.granted) {
           await refreshProfile();
+          reachGoal('purchase');
           setStatus('done');
           return;
         }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase, xpProgress, type Achievement, type Friendship, type Profile, type Beat, type ProfileComment, PROFILE_COMMENT_COST_COINS } from '@/lib/supabase';
+import { reachGoal } from '@/lib/metrika';
 import PremiumButton from '@/components/PremiumButton';
 import MessagePrivacyModal from '@/components/MessagePrivacyModal';
 import { useLocale } from '@/context/LocaleContext';
@@ -275,6 +276,7 @@ export default function ProfilePage({
       a.href = beat.audio_url;
       a.download = beat.title;
       a.click();
+      reachGoal('beat_download');
     } else {
       showMessage(t('Этот бит не имеет аудиофайла для скачивания'));
     }

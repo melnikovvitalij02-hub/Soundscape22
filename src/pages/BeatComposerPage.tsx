@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useLocale } from '@/context/LocaleContext';
 import PublishBeatModal from '@/components/PublishBeatModal';
+import { reachGoal } from '@/lib/metrika';
 
 export type TrackType = 'kick' | 'snare' | 'hihat' | 'openhat' | 'clap' | 'tom' | 'bass' | 'synth' | 'pad' | 'crash' | 'rim' | 'perc' | 'piano' | 'violin' | 'guitar' | 'flute' | 'sax' | 'drums';
 
@@ -2279,9 +2280,20 @@ const addTrack = (presetType?: TrackType) => {
         <PublishBeatModal
           onClose={() => setShowPublishModal(false)}
           onPublished={(beatId) => {
+            void beatId;
             setShowPublishModal(false);
             setPublishStatus(t('Бит опубликован!'));
             setTimeout(() => setPublishStatus(null), 3000);
+            // Goal "first completed beat": fires only when this is the user's first published beat
+            if (session?.user) {
+              void supabase
+                .from('beats')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', session.user.id)
+                .then(({ count }) => {
+                  if (count === 1) reachGoal('first_beat');
+                });
+            }
           }}
           composerData={{ tracks, bpm, bars, genre, projectName }}
         />

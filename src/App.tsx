@@ -29,6 +29,7 @@ import TrendingPage from '@/pages/TrendingPage';
 import ChartsPage from '@/pages/ChartsPage';
 import MiniPlayer from '@/components/MiniPlayer';
 import ActivityTracker from '@/components/ActivityTracker';
+import { hit as metrikaHit, reachGoal } from '@/lib/metrika';
 
 import { ArrowRight, Check, Loader2, Sparkles, X } from 'lucide-react';
 
@@ -50,6 +51,7 @@ function AppContent() {
   const [headerVisible, setHeaderVisible] = useState(true);
   const lastScrollRef = useRef(0);
   const mainRef = useRef<HTMLElement | null>(null);
+  const firstPageRenderRef = useRef(true);
   const [onboardingStep, setOnboardingStep] = useState<number | null>(() =>
     localStorage.getItem('soundscape-onboarding-complete') ? null : 0
   );
@@ -70,6 +72,16 @@ function AppContent() {
       if (hash) setPage(hash as Page);
     }
   }, []);
+
+  // SPA page view for Yandex Metrika: init already counts the first load,
+  // so report a hit only when the in-app page actually changes
+  useEffect(() => {
+    if (firstPageRenderRef.current) {
+      firstPageRenderRef.current = false;
+      return;
+    }
+    metrikaHit(window.location.href);
+  }, [page]);
 
   useEffect(() => {
     const main = mainRef.current;

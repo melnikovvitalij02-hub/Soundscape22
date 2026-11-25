@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase, type Profile } from '@/lib/supabase';
+import { reachGoal } from '@/lib/metrika';
 import { isProfaneText } from '@/lib/profanity';
 
 type AuthContextType = {
@@ -173,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Send welcome notification email (fire-and-forget)
+      reachGoal('registration');
       fetch(`${import.meta.env.VITE_SUPABASE_URL || 'https://cccoflivuzxzujieuhvo.supabase.co'}/functions/v1/send-notification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
