@@ -55,7 +55,8 @@ export type Page =
   | 'payment-success'
   | 'reset-password'
   | 'score'
-  | 'shop';
+  | 'shop'
+  | 'cords';
 
 const navGroups: { label: string; icon: typeof Rocket; items: { id: Page; label: string; icon: typeof Music }[] }[] = [
   {
@@ -73,6 +74,7 @@ const navGroups: { label: string; icon: typeof Rocket; items: { id: Page; label:
       { id: 'beat', label: 'Бит-секвенсор', icon: Drum },
       { id: 'feed', label: 'Лента битов', icon: Newspaper },
       //{ id: 'studio', label: 'Текст и вокал', icon: Mic },
+      { id: 'cords', label: 'Аккорды', icon: Mic },
       { id: 'coach', label: 'Тренер', icon: Brain },
       { id: 'score', label: 'Нотный редактор', icon: FileMusic },
       { id: 'trending', label: 'Горящие треки', icon: Flame },
