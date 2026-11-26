@@ -116,10 +116,6 @@ export default function AuthScreen() {
           <p className="text-[16px] text-theme-muted mt-2.5 max-w-[90%]">
             {t('Музыкальная социальная платформа — создавай, делись, играй')}
           </p>
-          <div className="inline-flex items-center gap-2 mt-5 px-4 py-2 rounded-[20px] text-sm font-semibold text-theme-warning bg-theme-warning/10 border border-theme-warning/20">
-            <Crown className="w-3.5 h-3.5" />
-            {t('Premium 259₽/мес')}
-          </div>
         </div>
 
         {/* Feature pills — filled style, no border, left-aligned */}
