@@ -8,7 +8,7 @@ import Sidebar, { type Page } from '@/components/Sidebar';
 import Header from '@/components/Header';
 import HomePage from '@/pages/HomePage';
 import BeatComposerPage from '@/pages/BeatComposerPage';
-//import AIStudioPage from '@/pages/AIStudioPage';
+import AIStudioPage from '@/pages/AIStudioPage';
 import ScoreEditorPage from '@/pages/ScoreEditorPage';
 import ChatPage from '@/pages/ChatPage';
 import MessagesPage from '@/pages/MessagesPage';
@@ -157,6 +157,7 @@ function AppContent() {
           {page === 'messages' && <MessagesPage initialUserId={messageTargetUserId} />}
           {page === 'trending' && <TrendingPage />}
           {page === 'charts' && <ChartsPage />}
+          {page === 'cords' && <ChartsPage />}
           {page === 'games' && <GamesPage />}
           {page === 'profile' && <ProfilePage viewUserId={viewUserId} onNavigateToProfile={navigateToProfile} onNavigateToMessages={navigateToMessages} />}
           {page === 'feed' && <BeatsFeedPage setPage={setPage} onNavigateToMessages={navigateToMessages} />}
