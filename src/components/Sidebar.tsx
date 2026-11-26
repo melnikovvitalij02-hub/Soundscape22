@@ -56,7 +56,7 @@ export type Page =
   | 'reset-password'
   | 'score'
   | 'shop'
-  | 'cords
+  | 'cords'
   | 'cords1';
 
 const navGroups: { label: string; icon: typeof Rocket; items: { id: Page; label: string; icon: typeof Music }[] }[] = [
