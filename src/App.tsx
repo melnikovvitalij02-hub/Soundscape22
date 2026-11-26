@@ -159,7 +159,7 @@ function AppContent() {
           {page === 'trending' && <TrendingPage />}
           {page === 'charts' && <ChartsPage />}
           {page === 'cords' && <AIStudioPage />}
-          {page === 'cords1' && <CordsPage />}
+          {page === 'cords1' && <ChordsPage />}
           {page === 'games' && <GamesPage />}
           {page === 'profile' && <ProfilePage viewUserId={viewUserId} onNavigateToProfile={navigateToProfile} onNavigateToMessages={navigateToMessages} />}
           {page === 'feed' && <BeatsFeedPage setPage={setPage} onNavigateToMessages={navigateToMessages} />}
