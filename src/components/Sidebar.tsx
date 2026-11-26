@@ -76,7 +76,7 @@ const navGroups: { label: string; icon: typeof Rocket; items: { id: Page; label:
       { id: 'feed', label: 'Лента битов', icon: Newspaper },
       //{ id: 'studio', label: 'Текст и вокал', icon: Mic },
       { id: 'cords', label: 'Аккорды', icon: Mic },
-      { id: 'cords1', label: 'Аккорды1', icon: Mic },
+      //{ id: 'cords1', label: 'Аккорды1', icon: Mic },
       { id: 'coach', label: 'Тренер', icon: Brain },
       { id: 'score', label: 'Нотный редактор', icon: FileMusic },
       { id: 'trending', label: 'Горящие треки', icon: Flame },
