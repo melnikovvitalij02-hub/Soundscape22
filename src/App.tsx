@@ -9,7 +9,7 @@ import Header from '@/components/Header';
 import HomePage from '@/pages/HomePage';
 import BeatComposerPage from '@/pages/BeatComposerPage';
 import AIStudioPage from '@/pages/AIStudioPage';
-import ChordsPage from '@/pages/CordsPage';
+import ChordsPage from '@/pages/ChordsPage';
 import ScoreEditorPage from '@/pages/ScoreEditorPage';
 import ChatPage from '@/pages/ChatPage';
 import MessagesPage from '@/pages/MessagesPage';
