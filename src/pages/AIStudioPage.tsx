@@ -80,7 +80,7 @@ export default function AIStudioPage({ setPage }: { setPage?: (p: Page) => void 
       <div>
         <h1 className="text-2xl font-bold text-theme-text flex items-center gap-2">
           <Music className="w-6 h-6 text-theme-accent" />
-          {t('ИИ Студия')}
+          {t('Аккорды')}
         </h1>
         <p className="text-theme-muted text-sm mt-1">
           {t('Подбор аккордовых прогрессий по тональности и стилю')}
