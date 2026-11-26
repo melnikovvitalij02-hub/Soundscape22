@@ -778,7 +778,7 @@ export default function AICoachPage({ onExit }: { onExit?: () => void }) {
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
-              {t('ИИ-Тренер')}
+              {t('Тренер')}
               <button
                 onClick={onExit ?? (() => window.history.back())}
                 className="md:hidden inline-flex items-center justify-center w-8 h-8 rounded-lg bg-theme-surface/50 border border-theme-border text-theme-muted hover:text-theme-danger transition"
@@ -846,7 +846,7 @@ export default function AICoachPage({ onExit }: { onExit?: () => void }) {
         </div>
 
         {isGuest ? (
-          <EmptyState icon={<Music className="w-10 h-10 mb-3 opacity-50" />} text={t('Войдите в аккаунт, чтобы ИИ-тренер разобрал ваши биты.')} />
+          <EmptyState icon={<Music className="w-10 h-10 mb-3 opacity-50" />} text={t('Войдите в аккаунт, чтобы тренер разобрал ваши биты.')} />
         ) : mode === 'create' ? (
           /* ---- Create mode: inline sequencer + real-time analysis ---- */
           <div className="grid lg:grid-cols-[1fr_360px] gap-6">
