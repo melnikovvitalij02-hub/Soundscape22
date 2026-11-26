@@ -157,7 +157,7 @@ function AppContent() {
           {page === 'messages' && <MessagesPage initialUserId={messageTargetUserId} />}
           {page === 'trending' && <TrendingPage />}
           {page === 'charts' && <ChartsPage />}
-          {page === 'cords' && <ChartsPage />}
+          {page === 'cords' && <AIStudioPage />}
           {page === 'games' && <GamesPage />}
           {page === 'profile' && <ProfilePage viewUserId={viewUserId} onNavigateToProfile={navigateToProfile} onNavigateToMessages={navigateToMessages} />}
           {page === 'feed' && <BeatsFeedPage setPage={setPage} onNavigateToMessages={navigateToMessages} />}
