@@ -57,7 +57,8 @@ export type Page =
   | 'score'
   | 'shop'
   | 'cords'
-  | 'cords1';
+  | 'cords1'
+  | 'stories';
 
 const navGroups: { label: string; icon: typeof Rocket; items: { id: Page; label: string; icon: typeof Music }[] }[] = [
   {
@@ -95,6 +96,7 @@ const navGroups: { label: string; icon: typeof Rocket; items: { id: Page; label:
     icon: Crown,
     items: [
       { id: 'clans', label: 'Кланы', icon: Crown },
+      { id: 'stories', label: 'Сторис', icon: Crown },
     ],
   },
   {
