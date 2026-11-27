@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useLocale } from '@/context/LocaleContext';
-import { Music, Users, Plus, LogOut, Check, Loader2, Send, Drum, Play, Pause, Trash2, Volume2, Repeat, Headphones, Bot, User } from 'lucide-react';
+import { Users, Plus, LogOut, Check, Loader2, Send, Play, Pause, Trash2, Timer, Headphones, Bot, User, Copy, Crown, ShieldAlert, Sparkles, Volume2 } from 'lucide-react';
 
-type Room = {
+export type GarticRoom = {
   id: string;
   code: string;
   host_id: string;
@@ -12,16 +12,17 @@ type Room = {
   max_players: number;
   current_round: number;
   total_rounds: number;
+  mode: string;
+  round_time_seconds: number;
+  bpm: number;
+  bars: number;
+  max_bars: number;
+  instruments: string[];
+  step_deadline: string | null;
+  guess_winner_step_id: string | null;
 };
 
-type Player = {
-  id: string;
-  room_id: string;
-  user_id: string;
-  username: string;
-  avatar_url: string | null;
-  is_ready: boolean;
-};
+type Player = { id: string; room_id: string; user_id: string; username: string; avatar_url: string | null; is_ready: boolean };
 
 type Chain = {
   id: string;
@@ -57,6 +58,14 @@ const TRACK_COLORS: Record<BeatType, string> = {
 };
 
 const TRACK_NAMES: Record<BeatType, string> = {
+  kick: 'Кик',
+  snare: 'Снэйр',
+  hihat: 'Хай-хэт',
+  bass: 'Бас',
+};
+
+const INSTRUMENT_VALUES: BeatType[] = ['kick', 'snare', 'hihat', 'bass'];
+const INSTRUMENT_NAMES: Record<BeatType, string> = {
   kick: 'Кик',
   snare: 'Снэйр',
   hihat: 'Хай-хэт',
@@ -152,7 +161,6 @@ function playBeatSound(ctx: AudioContext, type: BeatType, time: number, volume: 
     hGain.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
     osc.connect(filter);
     filter.connect(hGain);
-    hGain.connect(gain);
     osc.start(time);
     osc.stop(time + 0.03);
   } else if (type === 'bass') {
@@ -181,45 +189,94 @@ function genCode(): string {
   return code;
 }
 
-/* ---- Single-player AI guessing game helpers ---- */
+/* Single playback helper shared by composer and replay views */
 
-const SP_GENRES = Object.keys(GENRE_PATTERNS);
+function useBeatPlayer(pattern: BeatPattern, bpm: number) {
+  const { t } = useLocale();
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentStep, setCurrentStep] = useState(-1);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const intervalRef = useRef<number | null>(null);
+  const stepRef = useRef(0);
+  const patternRef = useRef(pattern);
 
-function pickRandomPattern(): { pattern: BeatPattern; genre: string } {
-  const genre = SP_GENRES[Math.floor(Math.random() * SP_GENRES.length)];
-  const base = GENRE_PATTERNS[genre];
-  // Add slight randomization so it's not identical to presets
-  const pattern: BeatPattern = base.map((t) => ({
-    ...t,
-    steps: t.steps.map((s) => (s && Math.random() < 0.15 ? false : s)),
-  }));
-  return { pattern, genre };
+  useEffect(() => { patternRef.current = pattern; }, [pattern]);
+
+  const getCtx = () => {
+    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+    return audioCtxRef.current;
+  };
+
+  const stop = useCallback(() => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    setIsPlaying(false);
+    setCurrentStep(-1);
+    stepRef.current = 0;
+  }, []);
+
+  const play = useCallback(() => {
+    const ctx = getCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    const stepDur = 60000 / Math.max(40, Math.min(300, bpm)) / 4;
+    stepRef.current = 0;
+    setIsPlaying(true);
+    const tick = () => {
+      const step = stepRef.current;
+      setCurrentStep(step);
+      const time = ctx.currentTime;
+      patternRef.current.forEach((track) => {
+        if (track.steps[step]) playBeatSound(ctx, track.type, time, track.volume);
+      });
+      stepRef.current = (step + 1) % STEPS;
+    };
+    tick();
+    intervalRef.current = window.setInterval(tick, stepDur);
+  }, [bpm]);
+
+  useEffect(() => () => stop(), [stop]);
+
+  return { t, isPlaying, currentStep, play, stop };
 }
-
-const SP_GENRE_HINTS: Record<string, string[]> = {
-  'Хип-Хоп': ['качающий бас', 'классический хип-хоп', 'рваный ритм', 'бочка на каждую долю'],
-  'Трэп': ['трэп-хай-хэты', 'быстрые трели', 'глубокий 808 бас', 'южный ритм'],
-  'House': ['четыре доли', 'танцевальный хаус', 'ровный бит', 'диско-бас'],
-};
 
 export default function GarticPhonePage() {
   const { profile, isGuest } = useAuth();
   const { t } = useLocale();
   const [view, setView] = useState<'lobby' | 'room' | 'play' | 'single'>('lobby');
-  const [room, setRoom] = useState<Room | null>(null);
+  const [room, setRoom] = useState<GarticRoom | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Room settings (host edits before start)
+  const [mode, setMode] = useState<'classic' | 'continue' | 'guess'>('classic');
+  const [roundTime, setRoundTime] = useState(180);
+  const [totalRounds, setTotalRounds] = useState(4);
+  const [bpm, setBpm] = useState(120);
+  const [selectedInstruments, setSelectedInstruments] = useState<BeatType[]>([...TRACK_TYPES]);
+  const [guessBars, setGuessBars] = useState(16);
 
   const createRoom = async () => {
     if (!profile || isGuest) return;
     setCreating(true);
     setError(null);
     const code = genCode();
+    const safeBpm = Math.max(40, Math.min(300, bpm));
+    const instruments = selectedInstruments.length > 0 ? selectedInstruments : [...TRACK_TYPES];
     const { data: roomData, error: roomErr } = await supabase
       .from('game_rooms')
-      .insert({ code, host_id: profile.id, status: 'waiting' })
+      .insert({
+        code,
+        host_id: profile.id,
+        status: 'waiting',
+        mode,
+        round_time_seconds: Math.max(30, Math.min(600, roundTime)),
+        total_rounds: mode === 'continue' ? players.length || 2 : Math.max(2, Math.min(64, totalRounds)),
+        bpm: safeBpm,
+        bars: 1,
+        max_bars: Math.max(1, Math.min(16, Math.ceil(guessBars / 16))),
+        instruments,
+      })
       .select()
       .single();
     if (roomErr) { setError(t('Не удалось создать комнату')); setCreating(false); return; }
@@ -242,7 +299,7 @@ export default function GarticPhonePage() {
       .from('game_rooms')
       .select('*')
       .eq('code', joinCode.toUpperCase().trim())
-      .single();
+      .maybeSingle();
     if (roomErr || !roomData) { setError(t('Комната не найдена')); return; }
     if (roomData.status !== 'waiting') { setError(t('Игра уже началась')); return; }
     const { count } = await supabase
@@ -266,7 +323,7 @@ export default function GarticPhonePage() {
       });
       if (playerError) { setError(t('Не удалось войти в комнату')); return; }
     }
-    setRoom(roomData);
+    setRoom(roomData as GarticRoom);
     setView('room');
   };
 
@@ -301,9 +358,11 @@ export default function GarticPhonePage() {
     const fetchRoom = async () => {
       const { data } = await supabase.from('game_rooms').select('*').eq('id', room.id).maybeSingle();
       if (data) {
-        const updatedRoom = data as Room;
+        const updatedRoom = data as GarticRoom;
         setRoom(updatedRoom);
-        if (updatedRoom.status === 'playing' && view === 'room') setView('play');
+        if ((updatedRoom.status === 'playing' || updatedRoom.status === 'guessing') && view === 'room') {
+          setView('play');
+        }
       }
     };
     fetchPlayers();
@@ -318,9 +377,9 @@ export default function GarticPhonePage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_room_players', filter: `room_id=eq.${room.id}` }, fetchPlayers)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_rooms', filter: `id=eq.${room.id}` }, (payload) => {
         if (payload.new) {
-          const updatedRoom = payload.new as Room;
+          const updatedRoom = payload.new as GarticRoom;
           setRoom(updatedRoom);
-          if (updatedRoom.status === 'playing' && view === 'room') {
+          if ((updatedRoom.status === 'playing' || updatedRoom.status === 'guessing') && view === 'room') {
             setView('play');
           }
         }
@@ -353,7 +412,6 @@ export default function GarticPhonePage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Single player */}
           <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl p-6">
             <div className="w-12 h-12 rounded-xl bg-theme-success/20 flex items-center justify-center mb-4">
               <Bot className="w-6 h-6 text-theme-success" />
@@ -375,7 +433,7 @@ export default function GarticPhonePage() {
               <Plus className="w-6 h-6 text-theme-primary" />
             </div>
             <h3 className="text-theme-text font-bold mb-2">{t('Создать комнату')}</h3>
-            <p className="text-theme-muted text-xs mb-4">{t('Создай комнату и поделись кодом с друзьями')}</p>
+            <p className="text-theme-muted text-xs mb-4">{t('Настрой режим, время и инструменты — и поделись кодом с друзьями')}</p>
             <button
               onClick={createRoom}
               disabled={isGuest || creating}
@@ -412,6 +470,123 @@ export default function GarticPhonePage() {
           </div>
         </div>
 
+        <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl p-6 space-y-5">
+          <h3 className="text-theme-text font-bold flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-theme-accent" />
+            {t('Настройки новой комнаты')}
+          </h3>
+
+          <div>
+            <p className="text-xs text-theme-muted uppercase tracking-wider mb-2">{t('Режим')}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {([
+                { v: 'classic', name: 'Классика', d: 'Бит — описание — бит. Цепочки меняются от игрока к игроку' },
+                { v: 'continue', name: 'Продолжение', d: 'Первый бит свой, остальные дополняют, не меняя чужую часть и BPM' },
+                { v: 'guess', name: 'Угадай бит', d: 'Один создаёт бит, остальные воссоздают его на слух — автор выбирает лучший' },
+              ] as const).map((m) => (
+                <button
+                  key={m.v}
+                  onClick={() => setMode(m.v)}
+                  className={`p-3 rounded-xl text-left border transition-all ${
+                    mode === m.v
+                      ? 'bg-theme-primary/10 border-theme-primary'
+                      : 'bg-theme-surface2/50 border-theme-border hover:border-theme-muted'
+                  }`}
+                >
+                  <p className={`text-sm font-bold ${mode === m.v ? 'text-theme-primary' : 'text-theme-text'}`}>{t(m.name)}</p>
+                  <p className="text-[11px] text-theme-muted mt-1">{t(m.d)}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <p className="text-xs text-theme-muted uppercase tracking-wider mb-2">{t('Время на ход')}</p>
+              <div className="flex gap-1 flex-wrap">
+                {[60, 120, 180, 300, 600].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setRoundTime(s)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      roundTime === s ? 'bg-theme-primary text-white' : 'bg-theme-surface2 text-theme-muted hover:text-theme-text'
+                    }`}
+                  >
+                    {s < 60 ? `${s} с` : `${s / 60} мин`}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-theme-muted uppercase tracking-wider mb-2">{t('BPM')}</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range" min={60} max={200} step={5} value={bpm}
+                  onChange={(e) => setBpm(Number(e.target.value))}
+                  className="flex-1 accent-theme-primary"
+                />
+                <span className="text-sm text-theme-text font-mono w-10 text-right">{bpm}</span>
+              </div>
+            </div>
+            {mode === 'guess' ? (
+              <div>
+                <p className="text-xs text-theme-muted uppercase tracking-wider mb-2">{t('Тактов у автора')}</p>
+                <div className="flex gap-1 flex-wrap">
+                  {[1, 2, 4].map((b) => (
+                    <button
+                      key={b}
+                      onClick={() => setGuessBars(b)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        guessBars === b ? 'bg-theme-primary text-white' : 'bg-theme-surface2 text-theme-muted hover:text-theme-text'
+                      }`}
+                    >
+                      {b * 16} {t('шагов')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className="text-xs text-theme-muted uppercase tracking-wider mb-2">
+                  {mode === 'continue' ? t('Раундов (по числу игроков)') : t('Шагов в цепочке')}
+                </p>
+                <div className="flex gap-1 flex-wrap">
+                  {[2, 4, 6, 8].map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setTotalRounds(r)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        totalRounds === r ? 'bg-theme-primary text-white' : 'bg-theme-surface2 text-theme-muted hover:text-theme-text'
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <p className="text-xs text-theme-muted uppercase tracking-wider mb-2">{t('Инструменты')}</p>
+            <div className="flex gap-2 flex-wrap">
+              {INSTRUMENT_VALUES.map((inst) => (
+                <button
+                  key={inst}
+                  onClick={() => setSelectedInstruments((prev) =>
+                    prev.includes(inst) ? prev.filter((i) => i !== inst) : [...prev, inst]
+                  )}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    selectedInstruments.includes(inst) ? 'bg-theme-accent text-white' : 'bg-theme-surface2 text-theme-muted hover:text-theme-text'
+                  }`}
+                >
+                  {t(INSTRUMENT_NAMES[inst])}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {error && (
           <div className="glass-surface bg-theme-danger/10 border border-theme-danger/30 rounded-xl p-3 text-sm text-theme-danger text-center">
             {error}
@@ -435,23 +610,24 @@ export default function GarticPhonePage() {
   if (view === 'room' && room) {
     const isHost = profile?.id === room.host_id;
     const canStart = players.length >= 2 && players.every((p) => p.is_ready);
+    const roundsForMode = room.mode === 'continue' ? players.length : room.total_rounds;
 
     const startGame = async () => {
       if (!room || !profile) return;
-      const chains: { room_id: string; chain_index: number; current_holder_id: string; current_step: number }[] = [];
-      for (let i = 0; i < players.length; i++) {
-        const nextPlayer = players[(i + 1) % players.length];
-        chains.push({
-          room_id: room.id,
-          chain_index: i,
-          current_holder_id: nextPlayer.user_id,
-          current_step: 0,
-        });
-      }
+      const chains = players.map((_, i) => ({
+        room_id: room.id,
+        chain_index: i,
+        current_holder_id: players[(i + 1) % players.length].user_id,
+        current_step: 0,
+      }));
       setError(null);
       const { error: chainsError } = await supabase.from('game_chains').insert(chains);
       if (chainsError) { setError(t('Не удалось запустить игру')); return; }
-      const { error: roomError } = await supabase.from('game_rooms').update({ status: 'playing' }).eq('id', room.id);
+      const deadline = new Date(Date.now() + Math.max(30, room.round_time_seconds) * 1000).toISOString();
+      const { error: roomError } = await supabase
+        .from('game_rooms')
+        .update({ status: 'playing', step_deadline: deadline })
+        .eq('id', room.id);
       if (roomError) { setError(t('Не удалось запустить игру')); return; }
       setView('play');
     };
@@ -461,7 +637,11 @@ export default function GarticPhonePage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-theme-text">{t('Комната')} {room.code}</h1>
-            <p className="text-theme-muted text-sm mt-1">{t('Игроков')}: {players.length}/{room.max_players}</p>
+            <p className="text-theme-muted text-sm mt-1">
+              {t('Игроков')}: {players.length}/{room.max_players}
+              {' · '}{t(roundTime >= 60 ? `${Math.round(room.round_time_seconds / 60)} мин на ход` : `${room.round_time_seconds} с на ход`)}
+              {' · '}{room.bpm} BPM
+            </p>
           </div>
           <button
             onClick={leaveRoom}
@@ -522,159 +702,141 @@ export default function GarticPhonePage() {
   return <PlayView room={room} players={players} profile={profile} onLeave={leaveRoom} />;
 }
 
-function PlayView({ room, players, profile, onLeave }: { room: Room | null; players: Player[]; profile: any; onLeave: () => void }) {
+function formatDeadline(msLeft: number): string {
+  if (msLeft <= 0) return '0:00';
+  const totalSec = Math.floor(msLeft / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function DeadlineBar({ room, onExpired }: { room: GarticRoom; onExpired: () => void }) {
   const { t } = useLocale();
-  const [chains, setChains] = useState<Chain[]>([]);
+  const [msLeft, setMsLeft] = useState(() =>
+    room.step_deadline ? new Date(room.step_deadline).getTime() - Date.now() : -1
+  );
+
+  useEffect(() => {
+    if (!room.step_deadline) return;
+    const timer = window.setInterval(() => {
+      setMsLeft(new Date(room.step_deadline!).getTime() - Date.now());
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [room.step_deadline]);
+
+  useEffect(() => {
+    if (room.step_deadline && msLeft <= 0) onExpired();
+  }, [msLeft, room.step_deadline, onExpired]);
+
+  if (!room.step_deadline || msLeft <= 0) return null;
+
+  const total = Math.max(30, room.round_time_seconds) * 1000;
+  const ratio = Math.max(0, Math.min(1, msLeft / total));
+  const urgent = msLeft < 30000;
+
+  return (
+    <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-xl p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <Timer className={`w-4 h-4 ${urgent ? 'text-theme-danger' : 'text-theme-muted'}`} />
+        <span className={`text-sm font-mono font-bold ${urgent ? 'text-theme-danger' : 'text-theme-text'}`}>
+          {t('Осталось')}: {formatDeadline(msLeft)}
+        </span>
+        {urgent && <ShieldAlert className="w-4 h-4 text-theme-danger" />}
+      </div>
+      <div className="h-1.5 rounded-full bg-theme-surface2 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${urgent ? 'bg-theme-danger' : 'bg-theme-primary'}`}
+          style={{ width: `${ratio * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PlayView({ room, players, profile, onLeave }: { room: GarticRoom | null; players: Player[]; profile: any; onLeave: () => void }) {
+  const { t } = useLocale();
   const [myChain, setMyChain] = useState<Chain | null>(null);
   const [steps, setSteps] = useState<ChainStep[]>([]);
   const [descText, setDescText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [gameFinished, setGameFinished] = useState(false);
   const [revealIndex, setRevealIndex] = useState(0);
-  const [allChainsData, setAllChainsData] = useState<ChainStep[][]>([]);
+  const [allChainsData, setAllChainsData] = useState<{ chain: Chain; steps: ChainStep[] }[]>([]);
+  const skippingRef = useRef(false);
 
-  const fetchMyChain = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     if (!room || !profile) return;
-    const { data } = await supabase
+    const { data: chainsData } = await supabase
       .from('game_chains')
       .select('*')
       .eq('room_id', room.id)
-      .eq('current_holder_id', profile.id)
-      .eq('completed', false)
-      .maybeSingle();
-    if (data) {
-      setMyChain(data as Chain);
+      .order('chain_index', { ascending: true });
+    const allChains = (chainsData || []) as Chain[];
+
+    const mine = allChains.find((c) => !c.completed && c.current_holder_id === profile.id);
+    if (mine) {
+      setMyChain(mine);
       const { data: stepData } = await supabase
         .from('game_chain_steps')
         .select('*')
-        .eq('chain_id', data.id)
+        .eq('chain_id', mine.id)
         .order('step_index', { ascending: true });
       setSteps((stepData || []) as ChainStep[]);
-    } else {
-      setMyChain(null);
-      const { data: allChains } = await supabase
-        .from('game_chains')
-        .select('*')
-        .eq('room_id', room.id);
-      if (allChains && allChains.every((c: any) => c.completed)) {
-        setGameFinished(true);
-        const chainsWithSteps: ChainStep[][] = [];
-        for (const c of allChains) {
-          const { data: s } = await supabase
-            .from('game_chain_steps')
-            .select('*')
-            .eq('chain_id', c.id)
-            .order('step_index', { ascending: true });
-          chainsWithSteps.push((s || []) as ChainStep[]);
-        }
-        setAllChainsData(chainsWithSteps);
-      }
+      return;
     }
-  }, [room, profile]);
+    setMyChain(null);
+    setSteps([]);
+
+    if (room.status !== 'guessing' && allChains.length > 0 && allChains.every((c) => c.completed)) {
+      setGameFinished(true);
+      const withSteps: { chain: Chain; steps: ChainStep[] }[] = [];
+      for (const c of allChains) {
+        const { data: s } = await supabase
+          .from('game_chain_steps')
+          .select('*')
+          .eq('chain_id', c.id)
+          .order('step_index', { ascending: true });
+        withSteps.push({ chain: c, steps: (s || []) as ChainStep[] });
+      }
+      setAllChainsData(withSteps);
+    }
+  }, [room?.id, room?.status, profile?.id]);
+
+  const skipExpired = useCallback(async () => {
+    if (!room || skippingRef.current) return;
+    skippingRef.current = true;
+    try {
+      await supabase.rpc('gartic_skip_expired', { p_room_id: room.id });
+    } catch { /* retried via polling */ }
+    skippingRef.current = false;
+    fetchAll();
+  }, [room?.id, room?.status, fetchAll]);
 
   useEffect(() => {
-    fetchMyChain();
+    fetchAll();
     if (!room) return;
     const channel = supabase
       .channel(`play-${room.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_chains', filter: `room_id=eq.${room.id}` }, fetchMyChain)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_chains', filter: `room_id=eq.${room.id}` }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_chain_steps' }, fetchAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_rooms', filter: `id=eq.${room.id}` }, fetchAll)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [room?.id, fetchMyChain]);
+    const poll = window.setInterval(fetchAll, 3000);
+    return () => {
+      supabase.removeChannel(channel);
+      window.clearInterval(poll);
+    };
+  }, [room?.id, fetchAll]);
 
-  const submitBeat = async (pattern: BeatPattern) => {
-    if (!myChain || !profile) return;
-    setSubmitting(true);
-    const lastStep = steps[steps.length - 1];
-    const stepIndex = lastStep ? lastStep.step_index + 1 : 0;
-    await supabase.from('game_chain_steps').insert({
-      chain_id: myChain.id,
-      step_index: stepIndex,
-      type: 'beat',
-      content: patternToJson(pattern),
-      author_id: profile.id,
-      author_name: profile.username,
-    });
-    const nextStep = myChain.current_step + 1;
-    const currentHolderIdx = players.findIndex((p) => p.user_id === myChain.current_holder_id);
-    const nextHolder = players[(currentHolderIdx + 1) % players.length];
-    const isComplete = nextStep >= (room?.total_rounds ?? 4);
-    await supabase.from('game_chains').update({
-      current_step: nextStep,
-      current_holder_id: isComplete ? null : nextHolder.user_id,
-      completed: isComplete,
-    }).eq('id', myChain.id);
-    setSubmitting(false);
-    setMyChain(null);
-  };
+  if (!room) return null;
 
-  const submitDescription = async () => {
-    if (!myChain || !profile || !descText.trim()) return;
-    setSubmitting(true);
-    const lastStep = steps[steps.length - 1];
-    const stepIndex = lastStep ? lastStep.step_index + 1 : 0;
-    await supabase.from('game_chain_steps').insert({
-      chain_id: myChain.id,
-      step_index: stepIndex,
-      type: 'description',
-      content: descText.trim(),
-      author_id: profile.id,
-      author_name: profile.username,
-    });
-    const nextStep = myChain.current_step + 1;
-    const currentHolderIdx = players.findIndex((p) => p.user_id === myChain.current_holder_id);
-    const nextHolder = players[(currentHolderIdx + 1) % players.length];
-    const isComplete = nextStep >= (room?.total_rounds ?? 4);
-    await supabase.from('game_chains').update({
-      current_step: nextStep,
-      current_holder_id: isComplete ? null : nextHolder.user_id,
-      completed: isComplete,
-    }).eq('id', myChain.id);
-    setDescText('');
-    setSubmitting(false);
-    setMyChain(null);
-  };
+  if (gameFinished || room.status === 'finished') {
+    return <FinalResults room={room} players={players} allChainsData={allChainsData} revealIndex={revealIndex} setRevealIndex={setRevealIndex} onLeave={onLeave} />;
+  }
 
-  if (gameFinished) {
-    const currentChain = allChainsData[revealIndex];
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-theme-text">{t('Результаты')}</h1>
-          <button onClick={onLeave} className="flex items-center gap-2 px-4 py-2 bg-theme-surface2 text-theme-muted rounded-lg text-sm hover:text-theme-danger transition-colors">
-            <LogOut className="w-4 h-4" /> {t('Выйти')}
-          </button>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {allChainsData.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setRevealIndex(i)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${revealIndex === i ? 'bg-theme-primary text-white' : 'bg-theme-surface2 text-theme-muted hover:text-theme-text'}`}
-            >
-              {t('Цепочка')} {i + 1}
-            </button>
-          ))}
-        </div>
-        {currentChain && (
-          <div className="space-y-3">
-            {currentChain.map((step, i) => (
-              <div key={step.id} className="glass-surface bg-theme-surface/50 border border-theme-border rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-theme-muted">{t('Шаг')} {i + 1}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-theme-primary/15 text-theme-primary">{step.author_name}</span>
-                </div>
-                {step.type === 'description' ? (
-                  <p className="text-theme-text text-lg">{step.content}</p>
-                ) : (
-                  <BeatReplay json={step.content} />
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
+  if (room.status === 'guessing') {
+    return <GuessView room={room} profile={profile} onSkip={skipExpired} />;
   }
 
   if (!myChain) {
@@ -686,6 +848,7 @@ function PlayView({ room, players, profile, onLeave }: { room: Room | null; play
             <LogOut className="w-4 h-4" /> {t('Выйти')}
           </button>
         </div>
+        <DeadlineBar room={room} onExpired={skipExpired} />
         <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl p-12 text-center">
           <Loader2 className="w-8 h-8 text-theme-primary animate-spin mx-auto mb-4" />
           <p className="text-theme-muted text-sm">{t('Ждём других игроков или свой ход...')}</p>
@@ -696,6 +859,46 @@ function PlayView({ room, players, profile, onLeave }: { room: Room | null; play
 
   const isDescriptionStep = myChain.current_step % 2 === 1;
   const lastStep = steps[steps.length - 1];
+  const roundsLeft = room.total_rounds - myChain.current_step;
+
+  const submitBeat = async (pattern: BeatPattern) => {
+    if (!myChain || !profile || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    const { error } = await supabase.rpc('gartic_submit_step', {
+      p_chain_id: myChain.id,
+      p_type: 'beat',
+      p_content: patternToJson(pattern),
+    });
+    if (error) {
+      setSubmitError(t('Не удалось отправить бит. Проверь время и попробуй ещё раз'));
+      setSubmitting(false);
+      return;
+    }
+    setSubmitting(false);
+    setMyChain(null);
+    fetchAll();
+  };
+
+  const submitDescription = async () => {
+    if (!myChain || !profile || !descText.trim() || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    const { error } = await supabase.rpc('gartic_submit_step', {
+      p_chain_id: myChain.id,
+      p_type: 'description',
+      p_content: descText.trim().slice(0, 300),
+    });
+    if (error) {
+      setSubmitError(t('Не удалось отправить описание. Попробуй ещё раз'));
+      setSubmitting(false);
+      return;
+    }
+    setDescText('');
+    setSubmitting(false);
+    setMyChain(null);
+    fetchAll();
+  };
 
   return (
     <div className="space-y-6">
@@ -703,8 +906,16 @@ function PlayView({ room, players, profile, onLeave }: { room: Room | null; play
         <h1 className="text-2xl font-bold text-theme-text">
           {isDescriptionStep ? t('Опиши бит') : t('Создай бит')}
         </h1>
-        <span className="text-xs text-theme-muted">{t('Шаг')} {myChain.current_step + 1} / {room?.total_rounds}</span>
+        <span className="text-xs text-theme-muted">{t('Шаг')} {myChain.current_step + 1} / {room.total_rounds}</span>
       </div>
+
+      <DeadlineBar room={room} onExpired={skipExpired} />
+
+      {submitError && (
+        <div className="glass-surface bg-theme-danger/10 border border-theme-danger/30 rounded-xl p-3 text-sm text-theme-danger text-center">
+          {submitError}
+        </div>
+      )}
 
       {!isDescriptionStep && lastStep?.type === 'description' && (
         <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-xl p-4 text-center">
@@ -716,7 +927,7 @@ function PlayView({ room, players, profile, onLeave }: { room: Room | null; play
       {isDescriptionStep && lastStep?.type === 'beat' && (
         <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-xl p-4">
           <p className="text-xs text-theme-muted mb-2">{t('Послушай бит и опиши его:')}</p>
-          <BeatReplay json={lastStep.content} />
+          <BeatReplay json={lastStep.content} bpm={room.bpm} />
         </div>
       )}
 
@@ -740,80 +951,195 @@ function PlayView({ room, players, profile, onLeave }: { room: Room | null; play
           </button>
         </div>
       ) : (
-        <BeatComposer onSubmit={submitBeat} submitting={submitting} />
+        <BeatComposer onSubmit={submitBeat} submitting={submitting} bpm={room.bpm} instruments={room.instruments} />
       )}
     </div>
   );
 }
 
-function BeatComposer({ onSubmit, submitting }: { onSubmit: (pattern: BeatPattern) => void; submitting: boolean }) {
+function GuessView({ room, profile, onSkip }: { room: GarticRoom; profile: any; onSkip: () => void }) {
   const { t } = useLocale();
+  const [original, setOriginal] = useState<ChainStep | null>(null);
+  const [guesses, setGuesses] = useState<ChainStep[]>([]);
   const [pattern, setPattern] = useState<BeatPattern>(emptyPattern);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentStep, setCurrentStep] = useState(-1);
-  const [genre, setGenre] = useState('');
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const intervalRef = useRef<number | null>(null);
-  const stepRef = useRef(0);
-  const patternRef = useRef(pattern);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const isAuthor = profile?.id === room.host_id;
 
-  useEffect(() => { patternRef.current = pattern; }, [pattern]);
+  const load = useCallback(async () => {
+    const { data: chain } = await supabase
+      .from('game_chains')
+      .select('id')
+      .eq('room_id', room.id)
+      .order('chain_index', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!chain) return;
+    const { data: stepData } = await supabase
+      .from('game_chain_steps')
+      .select('*')
+      .eq('chain_id', chain.id)
+      .order('step_index', { ascending: true });
+    const all = (stepData || []) as ChainStep[];
+    setOriginal(all.find((s) => s.step_index === 0) || null);
+    setGuesses(all.filter((s) => s.step_index > 0));
+  }, [room.id]);
 
-  const getCtx = () => {
-    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-    return audioCtxRef.current;
-  };
-
-  const stop = useCallback(() => {
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-    setIsPlaying(false);
-    setCurrentStep(-1);
-    stepRef.current = 0;
-  }, []);
-
-  const play = () => {
-    const ctx = getCtx();
-    if (ctx.state === 'suspended') ctx.resume();
-    const stepDur = 60000 / 120 / 4;
-    stepRef.current = 0;
-    setIsPlaying(true);
-    const tick = () => {
-      const step = stepRef.current;
-      setCurrentStep(step);
-      const time = ctx.currentTime;
-      patternRef.current.forEach((track) => {
-        if (track.steps[step]) playBeatSound(ctx, track.type, time, track.volume);
-      });
-      stepRef.current = (step + 1) % STEPS;
+  useEffect(() => {
+    load();
+    const channel = supabase
+      .channel(`guess-${room.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_chain_steps' }, load)
+      .subscribe();
+    const poll = window.setInterval(load, 3000);
+    return () => {
+      supabase.removeChannel(channel);
+      window.clearInterval(poll);
     };
-    tick();
-    intervalRef.current = window.setInterval(tick, stepDur);
+  }, [room.id, load]);
+
+  const submitGuess = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+    const { error: rpcError } = await supabase.rpc('gartic_guess_submit', {
+      p_room_id: room.id,
+      p_content: patternToJson(pattern),
+    });
+    if (rpcError) {
+      setError(t('Не удалось отправить. Возможно, время вышло'));
+      setSubmitting(false);
+      return;
+    }
+    setSubmitted(true);
+    setSubmitting(false);
+    load();
   };
 
-  useEffect(() => () => stop(), [stop]);
+  const pickWinner = async (stepId: string) => {
+    setError(null);
+    const { error: rpcError } = await supabase.rpc('gartic_pick_guess', {
+      p_room_id: room.id,
+      p_step_id: stepId,
+    });
+    if (rpcError) setError(t('Не удалось выбрать победителя'));
+  };
+
+  if (isAuthor) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-theme-text">{t('Угадай бит')}: {t('выбор автора')}</h1>
+        <DeadlineBar room={room} onExpired={onSkip} />
+        {original && <BeatReplay json={original.content} bpm={room.bpm} />}
+        <p className="text-theme-muted text-sm">{t('Другие игроки воссоздают твой бит на слух. Когда время выйдет или все отправят варианты — выбери самый точный')}</p>
+        <div className="space-y-3">
+          {guesses.map((g, i) => (
+            <div key={g.id} className="glass-surface bg-theme-surface/50 border border-theme-border rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-theme-primary/15 text-theme-primary">{g.author_name}</span>
+                <button
+                  onClick={() => pickWinner(g.id)}
+                  className="px-3 py-1.5 bg-theme-success text-white rounded-lg text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1"
+                >
+                  <Crown className="w-3.5 h-3.5" /> {t('Это лучший')}
+                </button>
+              </div>
+              <BeatReplay json={g.content} bpm={room.bpm} />
+              <span className="text-[10px] text-theme-muted">{t('Вариант')} {i + 1}</span>
+            </div>
+          ))}
+          {guesses.length === 0 && (
+            <p className="text-theme-muted text-sm text-center py-6">{t('Пока никто не отправил вариант...')}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-theme-text">{t('Угадай бит')}: {t('воссоздай услышанное')}</h1>
+      <DeadlineBar room={room} onExpired={onSkip} />
+      {original && (
+        <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-xl p-4">
+          <p className="text-xs text-theme-muted mb-2">{t('Оригинал (слушай сколько нужно):')}</p>
+          <BeatReplay json={original.content} bpm={room.bpm} />
+        </div>
+      )}
+      {submitted || guesses.some((g) => g.author_id === profile?.id) ? (
+        <div className="glass-surface bg-theme-success/10 border border-theme-success/30 rounded-xl p-4 text-sm text-theme-success text-center">
+          {t('Вариант отправлен! Ждём остальных или выбор автора')}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-theme-muted text-sm">{t('Собери тот же бит по памяти и отправь:')}</p>
+          <BeatComposer onSubmit={submitGuess} submitting={submitting} bpm={room.bpm} instruments={room.instruments} submitLabel={t('Отправить вариант')} />
+          {error && <p className="text-sm text-theme-danger text-center">{error}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BeatComposer({ onSubmit, submitting, bpm, instruments, submitLabel }: {
+  onSubmit: (pattern: BeatPattern) => void;
+  submitting: boolean;
+  bpm: number;
+  instruments: string[];
+  submitLabel?: string;
+}) {
+  const { t } = useLocale();
+  const activeTypes = useMemo(
+    () => TRACK_TYPES.filter((tt) => instruments.includes(tt)),
+    [instruments]
+  );
+  const base = useMemo<BeatPattern>(() => {
+    const types = activeTypes.length > 0 ? activeTypes : [...TRACK_TYPES];
+    return types.map((type) => ({ type, steps: Array(STEPS).fill(false), volume: 0.7 }));
+  }, [activeTypes]);
+
+  const [pattern, setPattern] = useState<BeatPattern>(base);
+  const [genre, setGenre] = useState('');
+  const player = useBeatPlayer(pattern, bpm);
+
+  useEffect(() => {
+    setPattern((prev) => {
+      const kept = base.map((b) => {
+        const old = prev.find((p) => p.type === b.type);
+        return old ? { ...b, steps: old.steps.map((s, i) => (b.steps.length > i ? s : false)) } : b;
+      });
+      return kept;
+    });
+    player.stop();
+  }, [base]);
 
   const toggleStep = (trackIdx: number, step: number) => {
-    setPattern((prev) => prev.map((t, i) =>
-      i === trackIdx ? { ...t, steps: t.steps.map((s, j) => j === step ? !s : s) } : t
+    setPattern((prev) => prev.map((tr, i) =>
+      i === trackIdx ? { ...tr, steps: tr.steps.map((s, j) => (j === step ? !s : s)) } : tr
     ));
   };
 
-  const clearAll = () => setPattern(emptyPattern());
+  const clearAll = () => setPattern(base.map((b) => ({ ...b, steps: b.steps.map(() => false) })));
 
   const loadGenre = (g: string) => {
     setGenre(g);
-    setPattern(GENRE_PATTERNS[g].map((t) => ({ ...t, steps: [...t.steps] })));
+    const preset = GENRE_PATTERNS[g];
+    setPattern(base.map((b) => {
+      const src = preset.find((p) => p.type === b.type);
+      return src ? { ...b, steps: [...src.steps], volume: src.volume } : b;
+    }));
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
         <button
-          onClick={isPlaying ? stop : play}
-          className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${isPlaying ? 'bg-theme-danger text-white' : 'bg-theme-success text-white'}`}
+          onClick={player.isPlaying ? player.stop : player.play}
+          className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${player.isPlaying ? 'bg-theme-danger text-white' : 'bg-theme-success text-white'}`}
         >
-          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          {isPlaying ? t('Стоп') : t('Играть')}
+          {player.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+          {player.isPlaying ? t('Стоп') : t('Играть')}
         </button>
         <button onClick={clearAll} className="px-3 py-2 bg-theme-surface2 text-theme-muted rounded-lg text-sm flex items-center gap-1 hover:text-theme-danger">
           <Trash2 className="w-4 h-4" /> {t('Очистить')}
@@ -841,7 +1167,7 @@ function BeatComposer({ onSubmit, submitting }: { onSubmit: (pattern: BeatPatter
                   <button
                     key={si}
                     onClick={() => toggleStep(ti, si)}
-                    className={`w-7 h-7 rounded-sm transition-all ${s ? TRACK_COLORS[track.type] : si % 4 === 0 ? 'bg-theme-surface2 hover:bg-theme-border' : 'bg-theme-surface hover:bg-theme-surface2'} ${currentStep === si && s ? 'ring-1 ring-white/50' : ''}`}
+                    className={`w-7 h-7 rounded-sm transition-all ${s ? TRACK_COLORS[track.type] : si % 4 === 0 ? 'bg-theme-surface2 hover:bg-theme-border' : 'bg-theme-surface hover:bg-theme-surface2'} ${player.currentStep === si && s ? 'ring-1 ring-white/50' : ''}`}
                   />
                 ))}
               </div>
@@ -852,69 +1178,27 @@ function BeatComposer({ onSubmit, submitting }: { onSubmit: (pattern: BeatPatter
 
       <button
         onClick={() => onSubmit(pattern)}
-        disabled={submitting}
+        disabled={submitting || pattern.every((tr) => tr.steps.every((s) => !s))}
         className="px-6 py-3 bg-theme-primary text-white rounded-xl text-sm font-bold hover:bg-theme-primary-hover transition-colors disabled:opacity-50 flex items-center gap-2"
       >
         {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-        {t('Готово — отправить')}
+        {submitLabel || t('Готово — отправить')}
       </button>
     </div>
   );
 }
 
-function BeatReplay({ json }: { json: string }) {
-  const { t } = useLocale();
+function BeatReplay({ json, bpm }: { json: string; bpm: number }) {
+  const { t } = useBeatPlayer(jsonToPattern(json) || emptyPattern(), bpm);
   const pattern = jsonToPattern(json) || emptyPattern();
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentStep, setCurrentStep] = useState(-1);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const intervalRef = useRef<number | null>(null);
-  const stepRef = useRef(0);
-  const patternRef = useRef(pattern);
-
-  useEffect(() => { patternRef.current = pattern; }, [pattern]);
-
-  const getCtx = () => {
-    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-    return audioCtxRef.current;
-  };
-
-  const stop = useCallback(() => {
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-    setIsPlaying(false);
-    setCurrentStep(-1);
-    stepRef.current = 0;
-  }, []);
-
-  const play = () => {
-    const ctx = getCtx();
-    if (ctx.state === 'suspended') ctx.resume();
-    const stepDur = 60000 / 120 / 4;
-    stepRef.current = 0;
-    setIsPlaying(true);
-    const tick = () => {
-      const step = stepRef.current;
-      setCurrentStep(step);
-      const time = ctx.currentTime;
-      patternRef.current.forEach((track) => {
-        if (track.steps[step]) playBeatSound(ctx, track.type, time, track.volume);
-      });
-      stepRef.current = (step + 1) % STEPS;
-    };
-    tick();
-    intervalRef.current = window.setInterval(tick, stepDur);
-  };
-
-  useEffect(() => () => stop(), [stop]);
-
   return (
     <div className="space-y-3">
       <button
-        onClick={isPlaying ? stop : play}
-        className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${isPlaying ? 'bg-theme-danger text-white' : 'bg-theme-primary text-white'}`}
+        onClick={player.isPlaying ? player.stop : player.play}
+        className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${player.isPlaying ? 'bg-theme-danger text-white' : 'bg-theme-primary text-white'}`}
       >
-        {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-        {isPlaying ? t('Стоп') : t('Слушать бит')}
+        {player.isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+        {player.isPlaying ? t('Стоп') : t('Слушать бит')}
       </button>
       <div className="bg-theme-surface2/50 rounded-xl p-3 overflow-x-auto">
         <div className="min-w-[400px] space-y-1.5">
@@ -925,7 +1209,7 @@ function BeatReplay({ json }: { json: string }) {
                 {track.steps.map((s, si) => (
                   <div
                     key={si}
-                    className={`w-5 h-5 rounded-sm ${s ? TRACK_COLORS[track.type] : 'bg-theme-surface/60'} ${currentStep === si && s ? 'ring-1 ring-white/50' : ''}`}
+                    className={`w-5 h-5 rounded-sm ${s ? TRACK_COLORS[track.type] : 'bg-theme-surface/60'} ${player.currentStep === si && s ? 'ring-1 ring-white/50' : ''}`}
                   />
                 ))}
               </div>
@@ -937,22 +1221,177 @@ function BeatReplay({ json }: { json: string }) {
   );
 }
 
+/* Final results: full history with copy-to-sequencer for Premium */
+
+function patternToSequencerTracks(pattern: BeatPattern) {
+  const presetMeta: Record<BeatType, { name: string; color: string }> = {
+    kick: { name: 'Кик', color: 'bg-theme-primary' },
+    snare: { name: 'Снейр', color: 'bg-theme-accent' },
+    hihat: { name: 'Хай-Хэт', color: 'bg-theme-warning' },
+    bass: { name: 'Бас', color: 'bg-theme-accent' },
+  };
+  return pattern.map((tr) => ({
+    id: crypto.randomUUID(),
+    name: presetMeta[tr.type].name,
+    type: tr.type,
+    steps: tr.steps,
+    volume: tr.volume,
+    muted: false,
+    color: presetMeta[tr.type].color,
+    reverb: 0, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0,
+    compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0,
+  }));
+}
+
+function FinalResults({ room, players, allChainsData, revealIndex, setRevealIndex, onLeave }: {
+  room: GarticRoom;
+  players: Player[];
+  allChainsData: { chain: Chain; steps: ChainStep[] }[];
+  revealIndex: number;
+  setRevealIndex: (i: number) => void;
+  onLeave: () => void;
+}) {
+  const { t } = useLocale();
+  const { profile } = useAuth();
+  const isPremium = profile?.is_premium === true;
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+
+  const chains = allChainsData.length > 0
+    ? allChainsData
+    : [{ chain: { id: '', room_id: room.id, chain_index: 0, current_holder_id: null, current_step: room.total_rounds, completed: true }, steps: [] as ChainStep[] }];
+
+  const current = chains[revealIndex] || chains[0];
+
+  const copyToSequencer = async (steps: ChainStep[], bpm: number) => {
+    if (!profile || !isPremium) return;
+    const beatSteps = steps.filter((s) => s.type === 'beat');
+    if (beatSteps.length === 0) return;
+    const lastBeat = jsonToPattern(beatSteps[beatSteps.length - 1].content);
+    if (!lastBeat) return;
+    const tracks = patternToSequencerTracks(lastBeat);
+    const project = {
+      id: crypto.randomUUID(),
+      name: `${t('Gartic Sound')} #${room.code}`,
+      data: { tracks, bpm, genre: t('Gartic Sound'), bars: 1 },
+    };
+    try {
+      const localProjects = JSON.parse(localStorage.getItem('beat_projects') || '[]');
+      localProjects.unshift(project);
+      localStorage.setItem('beat_projects', JSON.stringify(localProjects.slice(0, 20)));
+      const { error } = await supabase.from('projects').insert({
+        user_id: profile.id,
+        name: project.name,
+        data: project.data,
+        genre: t('Gartic Sound'),
+        bpm,
+      });
+      if (error) {
+        setCopyStatus(t('Скопировано локально (не удалось сохранить в облако)'));
+      } else {
+        setCopyStatus(t('Бит скопирован в секвенсор — открой «Секвенсор» и найди его в проектах'));
+      }
+    } catch {
+      setCopyStatus(t('Скопировано локально'));
+    }
+    setTimeout(() => setCopyStatus(null), 5000);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-theme-text">{t('Результаты')}</h1>
+        <button onClick={onLeave} className="flex items-center gap-2 px-4 py-2 bg-theme-surface2 text-theme-muted rounded-lg text-sm hover:text-theme-danger transition-colors">
+          <LogOut className="w-4 h-4" /> {t('Выйти')}
+        </button>
+      </div>
+
+      {chains.length > 1 && (
+        <div className="flex gap-2 flex-wrap">
+          {chains.map((c, i) => (
+            <button
+              key={c.chain.id || i}
+              onClick={() => setRevealIndex(i)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${revealIndex === i ? 'bg-theme-primary text-white' : 'bg-theme-surface2 text-theme-muted hover:text-theme-text'}`}
+            >
+              {t('Цепочка')} {i + 1}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="glass-surface bg-theme-surface/30 border border-theme-border rounded-xl p-3 text-xs text-theme-muted">
+        {t('Вся история:')}: {current.steps.length} {t('шагов')} · {room.bpm} BPM · {players.length} {t('игрок(ов)')}
+      </div>
+
+      <div className="space-y-3">
+        {current.steps.map((step, i) => (
+          <div key={step.id} className="glass-surface bg-theme-surface/50 border border-theme-border rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-theme-muted">{t('Шаг')} {i + 1}</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-theme-primary/15 text-theme-primary">{step.author_name}</span>
+              {step.type === 'description' ? (
+                <span className="text-[10px] text-theme-muted uppercase">{t('описание')}</span>
+              ) : (
+                <span className="text-[10px] text-theme-muted uppercase">{t('бит')}</span>
+              )}
+            </div>
+            {step.type === 'description' ? (
+              <p className="text-theme-text text-lg">{step.content}</p>
+            ) : (
+              <BeatReplay json={step.content} bpm={room.bpm} />
+            )}
+          </div>
+        ))}
+        {current.steps.length === 0 && (
+          <p className="text-theme-muted text-sm text-center py-6">{t('Цепочка пуста — игра завершилась до первых шагов')}</p>
+        )}
+      </div>
+
+      {current.steps.some((s) => s.type === 'beat') && (
+        <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl p-4">
+          {isPremium ? (
+            <div className="space-y-2">
+              <button
+                onClick={() => copyToSequencer(current.steps, room.bpm)}
+                className="w-full py-3 bg-theme-accent text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+              >
+                <Copy className="w-4 h-4" /> {t('Копировать последний бит в секвенсор')}
+              </button>
+              <p className="text-[11px] text-theme-muted text-center flex items-center justify-center gap-1">
+                <Crown className="w-3.5 h-3.5 text-theme-warning" />
+                {t('Premium: бит сохранится в «Мои проекты» секвенсора')}
+              </p>
+              {copyStatus && <p className="text-xs text-theme-success text-center">{copyStatus}</p>}
+            </div>
+          ) : (
+            <div className="text-center space-y-1">
+              <p className="text-sm text-theme-muted flex items-center justify-center gap-1">
+                <Crown className="w-4 h-4 text-theme-warning" />
+                {t('Копирование битов в секвенсор доступно с Premium')}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* =================== SINGLE PLAYER (vs AI) =================== */
 
 type Difficulty = 'easy' | 'medium' | 'hard';
 
-const DIFFICULTY_CONFIG: Record<Difficulty, { choices: string[]; hideGrid: boolean; label: string }> = {
-  easy:   { choices: [...SP_GENRES.slice(0, 2), ...SP_GENRES.slice(0, 1)], hideGrid: false, label: 'Лёгкий' },
-  medium: { choices: SP_GENRES, hideGrid: false, label: 'Средний' },
-  hard:   { choices: SP_GENRES, hideGrid: true, label: 'Сложный' },
+const DIFFICULTY_CONFIG: Record<Difficulty, { choices: number; hideGrid: boolean; label: string }> = {
+  easy:   { choices: 2, hideGrid: false, label: 'Лёгкий' },
+  medium: { choices: 3, hideGrid: false, label: 'Средний' },
+  hard:   { choices: 3, hideGrid: true, label: 'Сложный' },
 };
 
 function buildChoices(difficulty: Difficulty, correctGenre: string): string[] {
   const cfg = DIFFICULTY_CONFIG[difficulty];
   const wrong = SP_GENRES.filter((g) => g !== correctGenre);
   const shuffled = [...wrong].sort(() => Math.random() - 0.5);
-  const numChoices = difficulty === 'easy' ? 2 : 3;
-  const choices = [correctGenre, ...shuffled.slice(0, numChoices - 1)].sort(() => Math.random() - 0.5);
+  const choices = [correctGenre, ...shuffled.slice(0, cfg.choices - 1)].sort(() => Math.random() - 0.5);
   return choices;
 }
 
@@ -966,62 +1405,22 @@ function SinglePlayerView({ profile, onLeave }: { profile: any; onLeave: () => v
   const [revealed, setRevealed] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [choices, setChoices] = useState<string[]>([]);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const intervalRef = useRef<number | null>(null);
-  const stepRef = useRef(0);
-  const patternRef = useRef<BeatPattern>([]);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentStep, setCurrentStep] = useState(-1);
+  const player = useBeatPlayer(current?.pattern || [], 120);
   const TOTAL_ROUNDS = 5;
 
-  const getCtx = () => {
-    if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
-    return audioCtxRef.current;
-  };
-
-  const stopPlayback = useCallback(() => {
-    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
-    setIsPlaying(false);
-    setCurrentStep(-1);
-    stepRef.current = 0;
-  }, []);
-
-  const playPattern = (pattern: BeatPattern) => {
-    const ctx = getCtx();
-    if (ctx.state === 'suspended') ctx.resume();
-    patternRef.current = pattern;
-    const stepDur = 60000 / 120 / 4;
-    stepRef.current = 0;
-    setIsPlaying(true);
-    const tick = () => {
-      const step = stepRef.current;
-      setCurrentStep(step);
-      const time = ctx.currentTime;
-      patternRef.current.forEach((track) => {
-        if (track.steps[step]) playBeatSound(ctx, track.type, time, track.volume);
-      });
-      stepRef.current = (step + 1) % STEPS;
-    };
-    tick();
-    intervalRef.current = window.setInterval(tick, stepDur);
-  };
-
-  useEffect(() => () => stopPlayback(), [stopPlayback]);
-
   const startRound = () => {
-    stopPlayback();
     const next = pickRandomPattern();
     setCurrent(next);
     setSelectedGenre(null);
     setRevealed(false);
     setChoices(buildChoices(difficulty, next.genre));
     setPhase('listen');
-    setTimeout(() => playPattern(next.pattern), 300);
+    setTimeout(() => player.play(), 300);
   };
 
   const submitGuess = () => {
     if (!current || !selectedGenre) return;
-    stopPlayback();
+    player.stop();
     const correct = selectedGenre === current.genre;
     if (correct) setScore((s) => s + 1);
     setRevealed(true);
@@ -1145,11 +1544,11 @@ function SinglePlayerView({ profile, onLeave }: { profile: any; onLeave: () => v
         <p className="text-theme-muted text-sm mb-4 text-center">{t('Послушай бит и выбери жанр')}:</p>
         <div className="flex justify-center mb-6">
           <button
-            onClick={isPlaying ? stopPlayback : () => current && playPattern(current.pattern)}
-            className={`px-6 py-3 rounded-xl text-sm font-medium flex items-center gap-2 ${isPlaying ? 'bg-theme-danger text-white' : 'bg-theme-primary text-white'}`}
+            onClick={player.isPlaying ? player.stop : () => current && player.play()}
+            className={`px-6 py-3 rounded-xl text-sm font-medium flex items-center gap-2 ${player.isPlaying ? 'bg-theme-danger text-white' : 'bg-theme-primary text-white'}`}
           >
-            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-            {isPlaying ? t('Стоп') : t('Слушать бит')}
+            {player.isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+            {player.isPlaying ? t('Стоп') : t('Слушать бит')}
           </button>
         </div>
 
@@ -1163,7 +1562,7 @@ function SinglePlayerView({ profile, onLeave }: { profile: any; onLeave: () => v
                     {track.steps.map((s, si) => (
                       <div
                         key={si}
-                        className={`w-5 h-5 rounded-sm ${s ? TRACK_COLORS[track.type] : 'bg-theme-surface/60'} ${currentStep === si && s ? 'ring-1 ring-white/50' : ''}`}
+                        className={`w-5 h-5 rounded-sm ${s ? TRACK_COLORS[track.type] : 'bg-theme-surface/60'} ${player.currentStep === si && s ? 'ring-1 ring-white/50' : ''}`}
                       />
                     ))}
                   </div>
