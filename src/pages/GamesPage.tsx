@@ -760,7 +760,6 @@ const RAP_WORDS = [
   'время', 'путь', 'шаг', 'ритм', 'поток', 'кровь', 'база', 'гром',
 ];
 
-// Словарь рифм: к каждому слову — 3 варианта-подсказки.
 const RAP_RHYMES: Record<string, string[]> = {
   'огонь': ['миллион', 'гармонь', 'заслон'],
   'ночь': ['прочь', 'поточь', 'сверх'],
@@ -826,9 +825,8 @@ function FreestyleRapGame({ onExit, onReward }: { onExit: () => void; onReward: 
     const w = pickWords();
     setWords(w);
     setUsedWords(prev => [...prev, ...w]);
-    const hints = w.map(wd => RAP_RHYMES[wd]?.[0]).filter(Boolean).join(', ');
-    setFeedback(`${t('Придумай рифмы к словам')}: ${w.map(wd => t(wd)).join(', ')}${hints ? ` · ${t('например')}: ${hints}` : ''}`);
-    setRhymeInput(hints ? w.map(wd => `${t(wd)} / ${RAP_RHYMES[wd]?.[0] ?? ''}`).join('\n') : '');
+    setFeedback(`${t('Придумай рифмы к словам')}: ${w.map(wd => t(wd)).join(', ')}`);
+    setRhymeInput('');
     setTimeLeft(ROUND_TIME);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = window.setInterval(() => {
@@ -905,12 +903,12 @@ function FreestyleRapGame({ onExit, onReward }: { onExit: () => void; onReward: 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
   return (
-    <GameShell title="Freestyle Rap" hint={t('4 случайных слова с подсказками-рифмами. Слова не повторяются между раундами. 5 раундов по 5 минут.')} score={score} meta={phase === 'playing' ? `${t('раунд')} ${round + 1}/${TOTAL_ROUNDS}` : undefined} onExit={onExit}>
+    <GameShell title="Freestyle Rap" hint={t('4 случайных слова. Придумай рифмы сам — готовых подсказок нет. Слова не повторяются между раундами. 5 раундов по 5 минут.')} score={score} meta={phase === 'playing' ? `${t('раунд')} ${round + 1}/${TOTAL_ROUNDS}` : undefined} onExit={onExit}>
       <div className="panel p-6 space-y-4">
         {phase === 'idle' && (
           <div className="text-center space-y-4">
             <Type className="w-16 h-16 text-theme-accent mx-auto animate-pulse" />
-            <p className="text-theme-muted text-sm">{t('5 раундов. В каждом — 4 слова с рифмами-подсказками и 5 минут. Слова не повторяются!')}</p>
+            <p className="text-theme-muted text-sm">{t('5 раундов. В каждом — 4 слова, придумай к ним рифмы сам. Слова не повторяются!')}</p>
             <button onClick={start} className="px-6 py-3 bg-theme-primary text-white rounded-xl font-medium hover:opacity-90 transition-opacity inline-flex items-center gap-2">
               <Play className="w-5 h-5" /> {t('Начать')}
             </button>
@@ -1048,7 +1046,7 @@ export default function GamesPage() {
     { k: 'pacman', t: 'Pac-Man: Neon Maze', d: 'Призраки, жизни, нормальные повороты и более живой лабиринт.', c: '#e8a94f', icon: <Ghost className="w-5 h-5" />, score: highScores['pacman'] || 0 },
     { k: 'clicker', t: 'Stellar Reactor', d: 'Звезда вместо бублика, энергия, реактор и дроны авто-сбора.', c: '#ffd9a0', icon: <Star className="w-5 h-5" />, score: highScores['clicker'] || 0 },
     { k: 'beatrush', t: 'Beat Rush', d: 'Жми в такт бита: 16 ударов, темп каждого раунда случаен от 80 до 160 BPM.', c: '#38bdf8', icon: <Music2 className="w-5 h-5" />, score: highScores['beatrush'] || 0 },
-    { k: 'freestyle', t: 'Freestyle Rap', d: '4 слова с рифмами-подсказками и 5 минут на раунд. Слова не повторяются между раундами!', c: '#a78bfa', icon: <Type className="w-5 h-5" />, score: highScores['freestyle'] || 0 },
+    { k: 'freestyle', t: 'Freestyle Rap', d: '4 случайных слова — придумай рифмы сам. 5 раундов по 5 минут, слова не повторяются!', c: '#a78bfa', icon: <Type className="w-5 h-5" />, score: highScores['freestyle'] || 0 },
     { k: 'GarticSound', t: 'Gartic Sound', d: 'Придумывай биты - придумывай описание.', c: '#e675d3', icon: <HeadphonesIcon className="w-5 h-5" /> },
   ];
 
