@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useLocale } from '@/context/LocaleContext';
@@ -1189,7 +1189,8 @@ function BeatComposer({ onSubmit, submitting, bpm, instruments, submitLabel }: {
 }
 
 function BeatReplay({ json, bpm }: { json: string; bpm: number }) {
-  const { t } = useBeatPlayer(jsonToPattern(json) || emptyPattern(), bpm);
+  const player = useBeatPlayer(useMemo(() => jsonToPattern(json) || emptyPattern(), [json]), bpm);
+  const { t } = player;
   const pattern = jsonToPattern(json) || emptyPattern();
   return (
     <div className="space-y-3">
@@ -1380,6 +1381,14 @@ function FinalResults({ room, players, allChainsData, revealIndex, setRevealInde
 /* =================== SINGLE PLAYER (vs AI) =================== */
 
 type Difficulty = 'easy' | 'medium' | 'hard';
+
+const SP_GENRES = Object.keys(GENRE_PATTERNS);
+
+function pickRandomPattern(): { pattern: BeatPattern; genre: string } {
+  const genre = SP_GENRES[Math.floor(Math.random() * SP_GENRES.length)];
+  const preset = GENRE_PATTERNS[genre];
+  return { pattern: preset.map((tr) => ({ type: tr.type, steps: [...tr.steps], volume: tr.volume })), genre };
+}
 
 const DIFFICULTY_CONFIG: Record<Difficulty, { choices: number; hideGrid: boolean; label: string }> = {
   easy:   { choices: 2, hideGrid: false, label: 'Лёгкий' },
