@@ -2333,7 +2333,7 @@ const addTrack = (presetType?: TrackType) => {
                 </div>
               );
             }).concat(
-              packInstruments.size >= 0 && samplePresets.length >= 0 ? (
+              packInstruments.size > 0 && samplePresets.length > 0 ? (
                 <div key="sample-packs">
                   <p className="text-[11px] text-theme-muted uppercase tracking-widest mb-2 mt-4">{t('Другие инструменты')}</p>
                   <div className="flex flex-wrap gap-2">
