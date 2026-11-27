@@ -88,15 +88,6 @@ export default function CoinPurchase() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 bg-theme-surface/50 border border-theme-primary/30 rounded-2xl px-5 py-3 glass-surface flex-wrap">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
-          <Gem className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <p className="text-theme-muted text-xs uppercase tracking-wider">Донат-монеты</p>
-          <p className="text-xl font-bold text-theme-text">{donateCoins}</p>
-        </div>
-      </div>
 
       <div className="bg-theme-primary-bg border border-theme-primary-border rounded-xl p-4 flex items-center gap-3">
         <Gamepad2 className="w-5 h-5 text-theme-primary shrink-0" />
