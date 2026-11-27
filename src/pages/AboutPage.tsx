@@ -83,7 +83,7 @@ const features = [
 ];
 
 const pricingFeatures = [
-  'Безлимитные дорожки и до 256 тактов в секвенсоре',
+  'Безлимитные дорожки в секвенсоре',
   'Pro-эффекты: Distortion, Bitcrush, Compressor, EQ, Pan',
   'Экспорт в MIDI и скачивание битов без ограничений',
   'Продажа своих битов за Gem и Coin',

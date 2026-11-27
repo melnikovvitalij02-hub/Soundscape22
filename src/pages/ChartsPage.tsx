@@ -2,7 +2,7 @@ import { BarChart3, BadgeCheck, Pause, Play, Music, Megaphone } from 'lucide-rea
 import { usePlayer } from '@/context/PlayerContext';
 import { CHART_TRACKS } from '@/lib/charts';
 
-// «Авторские» — треки Виталия Мельникова, «Спонсорский» — размещение по договорённости.
+// «Авторские» — треки разработчиков Soundscape, «Спонсорский» — размещение по договорённости.
 const SPONSORED_IDS = new Set(['chart-track-5']);
 
 export default function ChartsPage() {
@@ -24,7 +24,7 @@ export default function ChartsPage() {
           <BarChart3 className="w-6 h-6 text-theme-primary" />
           Чарты
         </h1>
-        <p className="text-theme-muted text-sm mt-1">Авторские треки Виталия Мельникова. Слушайте целиком прямо в Soundscape.</p>
+        <p className="text-theme-muted text-sm mt-1">Треки разработчиков Soundscape — не только одного автора. Слушайте целиком прямо в Soundscape.</p>
       </div>
 
       <ol className="space-y-3">

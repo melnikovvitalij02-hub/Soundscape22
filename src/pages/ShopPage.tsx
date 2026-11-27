@@ -1,21 +1,20 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { supabase, type AvatarShopItem, type Sticker } from '@/lib/supabase';
+import { supabase, type AvatarShopItem } from '@/lib/supabase';
 import {
   Coins, Gem, Check, ShoppingBag, Sparkles, Loader2, Crown, Star,
   Package, Palette, Zap, Music, Download, Banknote, History, ArrowDownToLine,
 } from 'lucide-react';
 import CoinPurchase from '@/components/CoinPurchase';
-import GemWithdraw from '@/components/GemWithdraw';
+import GemPurchase from '@/components/GemPurchase';
 import { useLocale } from '@/context/LocaleContext';
 import PurchaseHistory from '@/components/PurchaseHistory';
-import StickerChest from '@/components/StickerChest';
 
 type SamplePack = { id: string; name: string; producer_name: string; genre: string; price_gems: number; price_coins: number; description: string; track_count: number; cover_url: string | null; is_exclusive: boolean };
 type CosmeticItem = { id: string; name: string; type: 'skin' | 'frame' | 'theme' | 'effect'; price_gems: number; price_coins: number; rarity: 'common' | 'rare' | 'epic' | 'legendary'; preview_url: string | null; description: string };
 type UserCosmetic = { id: string; user_id: string; cosmetic_id: string; is_equipped: boolean; purchased_at: string };
 type BoostItem = { id: string; name: string; type: string; price_gems: number; price_coins: number; duration_hours: number; description: string };
-type TabId = 'coins' | 'samples' | 'cosmetics' | 'boosts' | 'avatars' | 'stickers' | 'history';
+type TabId = 'coins' | 'samples' | 'cosmetics' | 'boosts' | 'avatars' | 'history';
 
 const RARITY_STYLES: Record<string, { border: string; glow: string; badge: string; label: string }> = {
   common: { border: 'border-theme-border', glow: '', badge: 'bg-theme-surface2 text-theme-muted', label: 'Обычный' },
@@ -36,7 +35,6 @@ const TABS: { id: TabId; label: string; icon: typeof Coins }[] = [
   { id: 'cosmetics', label: 'Внешний вид', icon: Palette },
   { id: 'boosts', label: 'Ускорения', icon: Zap },
   { id: 'avatars', label: 'Аватары', icon: Crown },
-  { id: 'stickers', label: 'Стикеры', icon: Sparkles },
   { id: 'history', label: 'История', icon: History },
 ];
 
@@ -99,8 +97,6 @@ export default function ShopPage() {
   const [boostItems, setBoostItems] = useState<BoostItem[]>([]);
   const [avatars, setAvatars] = useState<AvatarShopItem[]>([]);
   const [ownedAvatars, setOwnedAvatars] = useState<string[]>([]);
-  const [stickers, setStickers] = useState<Sticker[]>([]);
-  const [ownedStickers, setOwnedStickers] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [buying, setBuying] = useState<string | null>(null);
@@ -140,13 +136,6 @@ export default function ShopPage() {
       ]);
       if (i.data) setAvatars(i.data as AvatarShopItem[]);
       if (o.data) setOwnedAvatars((o.data as { avatar_shop_item_id: string }[]).map((r) => r.avatar_shop_item_id));
-    } else if (tab === 'stickers') {
-      const [i, o] = await Promise.all([
-        supabase.from('stickers').select('*').order('price_coins', { ascending: true }),
-        supabase.from('user_stickers').select('sticker_id').eq('user_id', profile.id),
-      ]);
-      if (i.data) setStickers(i.data as Sticker[]);
-      if (o.data) setOwnedStickers((o.data as { sticker_id: string }[]).map((r) => r.sticker_id));
     }
     setLoading(false);
   }, [profile, isGuest]);
@@ -227,9 +216,6 @@ export default function ShopPage() {
   const handleBuyAvatar = (item: AvatarShopItem, currency: 'gem' | 'coin') =>
     buyWithBalance('avatar', item, currency, item.name);
 
-  const handleBuySticker = (item: Sticker) =>
-    buyWithBalance('sticker', item, 'coin', item.name);
-
   // Currency choice UI: two buttons when both prices exist, one otherwise.
   function BuyButtons({ id, gems, coins, onBuy, label, icon: Icon }: { id: string; gems: number; coins: number; onBuy: (c: 'gem' | 'coin') => void; label: string; icon?: typeof Coins }) {
     const free = gems === 0 && coins === 0;
@@ -268,7 +254,7 @@ export default function ShopPage() {
     if (activeTab === 'coins') return (
       <div className="space-y-6">
         <CoinPurchase />
-        <GemWithdraw />
+        <GemPurchase />
       </div>
     );
     if (activeTab === 'history') return <PurchaseHistory />;
@@ -290,7 +276,7 @@ export default function ShopPage() {
               <div className="p-4">
                 <h3 className="text-theme-text font-bold text-sm mb-1">{item.name}</h3>
                 <p className="text-theme-muted text-xs mb-1">{item.producer_name} · {item.genre}</p>
-                <p className="text-theme-muted text-xs mb-3 flex items-center gap-1"><Music className="w-3 h-3" /> {item.track_count} {t('треков')}</p>
+                <p className="text-theme-muted text-xs mb-3 flex items-center gap-1"><Music className="w-3 h-3" /> {item.track_count} {t('звуков')}</p>
                 <p className="text-theme-muted text-xs mb-2 line-clamp-2">{item.description}</p>
                 <DualPrice gems={item.price_gems} coins={item.price_coins} />
                 {owned ? <OwnedBadge label={t('Куплено')} icon={Download} />
@@ -396,34 +382,6 @@ export default function ShopPage() {
         })}
       </div>
     );
-    if (activeTab === 'stickers') return (
-      <div className="space-y-6">
-        {/* Сундук стикеров временно скрыт по запросу */}
-        {/* <StickerChest /> */}
-        {stickers.length === 0 ? (
-          <EmptyState icon={Sparkles} text={t('Стикеры скоро появятся')} />
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-            {stickers.map((item) => {
-              const owned = ownedStickers.includes(item.id);
-              return (
-                <div key={item.id} className="bg-theme-surface/50 border border-theme-border rounded-2xl overflow-hidden glass-surface shop-card">
-                  <div className="aspect-square flex items-center justify-center bg-theme-surface2 p-3">
-                    <img src={item.image_url} alt={item.name} className="w-full h-full object-contain" />
-                  </div>
-                  <div className="p-3">
-                    <p className="text-theme-text text-xs font-medium truncate">{item.name}</p>
-                    <p className="text-theme-muted text-xs mt-1">{item.price_coins} Coin</p>
-                    {owned && <p className="text-theme-success text-xs mt-1">✓ {t('В коллекции')}</p>}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-    if (activeTab === 'history') return <PurchaseHistory />;
     return null;
   })();
     
@@ -433,7 +391,7 @@ export default function ShopPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-theme-text flex items-center gap-2"><ShoppingBag className="w-6 h-6 text-theme-primary" /> {t('Магазин')}</h1>
-          <p className="text-theme-muted text-sm mt-1">{t('Всё покупается за Gem или Coin — цена в Coin выше. Стикеры — только за Coin.')}</p>
+          <p className="text-theme-muted text-sm mt-1">{t('Всё покупается за Gem или Coin — цена в Coin выше.')}</p>
         </div>
       </div>
 

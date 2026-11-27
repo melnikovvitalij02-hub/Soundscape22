@@ -107,6 +107,15 @@ const SAMPLE_PRESETS: (Omit<Track, 'id' | 'steps' | 'muted'> & { type: SampleIns
   { name: 'Голос (жен.)', type: 'vocfemale', volume: 0.5, color: 'bg-theme-success', reverb: 0.25, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0 },
 ];
 
+// Каждый купленный сэмпл-пак добавляет в секвенсор свои инструменты.
+const PACK_SOUND_MAP: Record<string, SampleInstrumentId[]> = {
+  'Hip-Hop Classic': ['rockguitar'],
+  'Trap Galaxy': ['trumpet'],
+  'Phonk Underground': ['cello'],
+  'House Vibes': ['vocmale'],
+  'Lo-Fi Dreams': ['vocfemale'],
+};
+
 // Per-step pitch for melodic instruments: number step = MIDI note to play.
 const stepMidi = (step: boolean | number | undefined): number | null =>
   typeof step === 'number' ? step : null;
@@ -1022,8 +1031,8 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
   const [pubDescription, setPubDescription] = useState('');
   const [pubDownloadAccess, setPubDownloadAccess] = useState<'premium' | 'paid' | 'nobody'>('premium');
 
-  // Sample-pack instruments: available once the user owns any sample pack
-  const [hasSamplePacks, setHasSamplePacks] = useState(false);
+  // Sample-pack instruments: each owned pack unlocks its own sounds
+  const [packInstruments, setPackInstruments] = useState<Set<SampleInstrumentId>>(new Set());
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -1525,11 +1534,20 @@ const addTrack = (presetType?: TrackType) => {
 
   useEffect(() => {
     if (!profile || isGuest) return;
-    supabase
-      .from('user_sample_packs')
-      .select('sample_pack_id')
-      .eq('user_id', profile.id)
-      .then(({ data }) => setHasSamplePacks(!!data && data.length > 0));
+    (async () => {
+      const [{ data: owned }, { data: packs }] = await Promise.all([
+        supabase.from('user_sample_packs').select('sample_pack_id').eq('user_id', profile.id),
+        supabase.from('sample_packs').select('id, name'),
+      ]);
+      if (!owned || !packs) return;
+      const nameById = new Map((packs as { id: string; name: string }[]).map((p) => [p.id, p.name]));
+      const next = new Set<SampleInstrumentId>();
+      (owned as { sample_pack_id: string }[]).forEach((row) => {
+        const sounds = PACK_SOUND_MAP[nameById.get(row.sample_pack_id) ?? ''] ?? [];
+        sounds.forEach((inst) => next.add(inst));
+      });
+      setPackInstruments(next);
+    })();
   }, [profile, isGuest]);
 
   useEffect(() => {
@@ -2280,7 +2298,9 @@ const addTrack = (presetType?: TrackType) => {
               { label: t('Голоса'), types: ['vocaltimati'] },
             ];
             const search = trackSearch.toLowerCase();
-            const samplePresets = SAMPLE_PRESETS.filter((p) => !search || p.name.toLowerCase().includes(search));
+            const samplePresets = SAMPLE_PRESETS
+              .filter((p) => packInstruments.has(p.type))
+              .filter((p) => !search || p.name.toLowerCase().includes(search));
             return categories.map((cat) => {
               const presets = cat.types
                 .map(t => TRACK_PRESETS.find(p => p.type === t))
@@ -2313,7 +2333,7 @@ const addTrack = (presetType?: TrackType) => {
                 </div>
               );
             }).concat(
-              hasSamplePacks && samplePresets.length > 0 ? (
+              packInstruments.size > 0 && samplePresets.length > 0 ? (
                 <div key="sample-packs">
                   <p className="text-[11px] text-theme-muted uppercase tracking-widest mb-2 mt-4">{t('Сэмпл-паки')}</p>
                   <div className="flex flex-wrap gap-2">

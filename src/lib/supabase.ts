@@ -251,6 +251,7 @@ export type AvatarShopItem = {
   name: string;
   image_url: string;
   price: number;
+  price_gems: number;
   rarity: string;
   created_at: string;
 };

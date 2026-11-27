@@ -22,7 +22,6 @@ const PREMIUM_FEATURES = [
 
 const COMPARISON: { feature: string; free: string | boolean; premium: string | boolean }[] = [
   { feature: 'Дорожки в секвенсоре', free: '3', premium: 'Безлимит' },
-  { feature: 'Такты в секвенсоре', free: '4', premium: '256' },
   { feature: 'Базовые эффекты (Reverb, Delay, Filter, Pitch)', free: true, premium: true },
   { feature: 'Pro-эффекты (Distortion, Bitcrush, Compressor, EQ, Pan)', free: false, premium: true },
   { feature: 'Все инструменты', free: false, premium: true },

@@ -29,6 +29,23 @@ const COIN_PACKAGES: Record<string, { rub: number; coins: number }> = {
   "coins_2500": { rub: 299, coins: 2500 }
 };
 
+// Gem packs (premium currency). The Gem balance IS donate_coins, so a gem
+// purchase credits donate_coins/total_donate_purchased — not the coin balance.
+const GEM_PACKAGES: Record<string, { rub: number; gems: number }> = {
+  "gems_100": { rub: 30, gems: 100 },
+  "gems_500": { rub: 150, gems: 500 },
+  "gems_1000": { rub: 300, gems: 1000 },
+  "gems_2500": { rub: 750, gems: 2500 },
+  "gems_5000": { rub: 1500, gems: 5000 },
+};
+
+function getGemPackageFromLabel(label: string): { rub: number; gems: number } | null {
+  for (const [prefix, pkg] of Object.entries(GEM_PACKAGES)) {
+    if (label.startsWith(prefix + "_")) return pkg;
+  }
+  return null;
+}
+
 function getPackageFromLabel(label: string): { rub: number; coins: number } | null {
   for (const [prefix, pkg] of Object.entries(COIN_PACKAGES)) {
     if (label.startsWith(prefix + "_")) return pkg;
@@ -109,10 +126,13 @@ Deno.serve(async (req: Request) => {
     // branch on, so the webhook must persist it here. This is the fix for
     // Block 14: a 30₽ coin purchase must never activate Premium.
     const isCoinPurchase = label.startsWith("coins_");
+    const isGemPurchase = label.startsWith("gems_");
     const isSubscription = label.startsWith("subscription_");
     const isShopPurchase = label.startsWith("shop_");
     const isPromoSubscription = label.startsWith("promosub_");
-    const paymentType = isCoinPurchase ? "coins" : isSubscription || isPromoSubscription ? "premium" : isShopPurchase ? "shop" : null;
+    // Gem purchases reuse payment_type 'coins' — the grant branch credits
+    // donate_coins instead of coins when the label is a gem pack.
+    const paymentType = isCoinPurchase || isGemPurchase ? "coins" : isSubscription || isPromoSubscription ? "premium" : isShopPurchase ? "shop" : null;
 
     if (!paymentType) {
       console.error("Unrecognized label format:", label);
@@ -142,7 +162,9 @@ Deno.serve(async (req: Request) => {
     let userId = "";
     if (isSubscription) {
       userId = label.replace("subscription_", "");
-    } else if (isCoinPurchase) {
+    } else if (isCoinPurchase || isGemPurchase) {
+      // "gems_<pack>_<userId>" — the pack id itself contains an underscore,
+      // so everything after the second segment is the user id.
       const parts = label.split("_");
       userId = parts.slice(2).join("_");
     } else if (isShopPurchase) {
@@ -168,7 +190,29 @@ Deno.serve(async (req: Request) => {
     const isSuccess = status === "success";
 
     let expectedAmount = SUBSCRIPTION_AMOUNT;
-    if (isCoinPurchase) {
+    if (isCoinPurchase || isGemPurchase) {
+      if (isGemPurchase) {
+        const gemPkg = getGemPackageFromLabel(label);
+        if (!gemPkg) {
+          console.error("Unknown gem package in label:", label);
+          return new Response(
+            JSON.stringify({ error: "Unknown gem package", label }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        expectedAmount = gemPkg.rub;
+      } else {
+        const pkg = getPackageFromLabel(label);
+        if (!pkg) {
+          console.error("Unknown coin package in label:", label);
+          return new Response(
+            JSON.stringify({ error: "Unknown coin package", label }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        expectedAmount = pkg.rub;
+      }
+    } else if (isShopPurchase) {
       const pkg = getPackageFromLabel(label);
       if (!pkg) {
         console.error("Unknown coin package in label:", label);
@@ -350,7 +394,6 @@ Deno.serve(async (req: Request) => {
       }
       console.log("Shop purchase fulfilled:", JSON.stringify(fulfillment.data));
     } else if (paymentType === "coins") {
-      const pkg = getPackageFromLabel(label)!;
       const { data: prof } = await supabase
         .from("profiles")
         .select("coins, donate_coins, total_donate_purchased")
@@ -359,17 +402,28 @@ Deno.serve(async (req: Request) => {
       const currentCoins = prof?.coins ?? 0;
       const currentDonate = prof?.donate_coins ?? 0;
       const currentTotal = prof?.total_donate_purchased ?? 0;
-      await supabase.from("profiles").update({
-        coins: currentCoins + pkg.coins,
-        donate_coins: currentDonate + pkg.coins,
-        total_donate_purchased: currentTotal + pkg.coins,
-      }).eq("id", userId);
 
-      await supabase.from("coin_purchases").update({
-        status: "completed", completed_at: new Date().toISOString(), yoomoney_operation_id: operationId || null,
-      }).eq("user_id", userId).eq("label", normalizedLabel).eq("status", "pending");
+      if (isGemPurchase) {
+        const gemPkg = getGemPackageFromLabel(label)!;
+        await supabase.from("profiles").update({
+          donate_coins: currentDonate + gemPkg.gems,
+          total_donate_purchased: currentTotal + gemPkg.gems,
+        }).eq("id", userId);
+        console.log(`Gems granted: ${gemPkg.gems} for user: ${userId}`);
+      } else {
+        const pkg = getPackageFromLabel(label)!;
+        await supabase.from("profiles").update({
+          coins: currentCoins + pkg.coins,
+          donate_coins: currentDonate + pkg.coins,
+          total_donate_purchased: currentTotal + pkg.coins,
+        }).eq("id", userId);
 
-      console.log(`Coins granted: ${pkg.coins} for user: ${userId}`);
+        await supabase.from("coin_purchases").update({
+          status: "completed", completed_at: new Date().toISOString(), yoomoney_operation_id: operationId || null,
+        }).eq("user_id", userId).eq("label", normalizedLabel).eq("status", "pending");
+
+        console.log(`Coins granted: ${pkg.coins} for user: ${userId}`);
+      }
     }
 
     return new Response(

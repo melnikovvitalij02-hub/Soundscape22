@@ -1582,6 +1582,14 @@ const en: Record<string, string> = {
   'например': 'e.g.',
   'попаданий': 'hits',
   '🗓 Рейтинг без сброса': '🗓 Chart without resets',
+  'Курс покупки Gem': 'Gem purchase rate',
+  'Премиум-валюта': 'Premium currency',
+  'Пакет': 'Package',
+  'Переход к оплате': 'Proceeding to payment',
+  'Перейти к оплате': 'Go to payment',
+  'Вы будете перенаправлены на сайт ЮMoney для безопасной оплаты. После успешной оплаты Gem зачислятся автоматически.': 'You will be redirected to the YooMoney website for a secure payment. After a successful payment, Gems are credited automatically.',
+  'Войдите в аккаунт, чтобы покупать Gem.': 'Sign in to buy Gems.',
+  'звуков': 'sounds',
 };
 
 export default en;
