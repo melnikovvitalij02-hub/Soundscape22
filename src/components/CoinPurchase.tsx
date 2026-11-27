@@ -92,7 +92,7 @@ export default function CoinPurchase() {
       <div className="bg-theme-primary-bg border border-theme-primary-border rounded-xl p-4 flex items-center gap-3">
         <Gamepad2 className="w-5 h-5 text-theme-primary shrink-0" />
         <p className="text-sm text-theme-primary-text">
-          Донат-монеты покупаются за деньги и тратятся на звуковые наборы (сэмпл-паки). Игровые монеты зарабатываются в играх и тратятся на остальные покупки в магазине.
+          Донат-монеты покупаются за деньги и тратятся на бусты битов, альтернативную покупку товаров в магазине, поддержку авторов и покупку платных битов. Игровые монеты зарабатываются в играх и тратятся на остальные покупки в магазине.
         </p>
       </div>
       
