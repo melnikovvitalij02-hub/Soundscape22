@@ -2335,7 +2335,7 @@ const addTrack = (presetType?: TrackType) => {
             }).concat(
               packInstruments.size > 0 && samplePresets.length > 0 ? (
                 <div key="sample-packs">
-                  <p className="text-[11px] text-theme-muted uppercase tracking-widest mb-2 mt-4">{t('Сэмпл-паки')}</p>
+                  <p className="text-[11px] text-theme-muted uppercase tracking-widest mb-2 mt-4">{t('Другие инструменты')}</p>
                   <div className="flex flex-wrap gap-2">
                     {samplePresets.map((p) => {
                       const used = tracks.some((t) => t.type === p.type);
