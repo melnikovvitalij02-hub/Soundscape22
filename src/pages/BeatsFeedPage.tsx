@@ -32,6 +32,7 @@ import { makeSound, type TrackType } from '@/pages/BeatComposerPage';
 import { STEPS, buildPattern, trackEffects, type SavedTrack } from '@/lib/beatPlayback';
 import { downloadAudioFile, renderSequencerMp3, saveBlob, safeFileName } from '@/lib/beatDownload';
 import { reachGoal } from '@/lib/metrika';
+import TrackProgress from '@/components/TrackProgress';
 
 type Beat = {
   id: string;
@@ -118,6 +119,18 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
   const [renamingBeat, setRenamingBeat] = useState<Beat | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
+  // Playback progress + looping
+  const [audioProgress, setAudioProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [seqPos, setSeqPos] = useState(0);
+  const [seqTotal, setSeqTotal] = useState(0);
+  const [loopOn, setLoopOn] = useState(false);
+  const loopOnRef = useRef(false);
+  useEffect(() => {
+    loopOnRef.current = loopOn;
+    if (audioElRef.current) audioElRef.current.loop = loopOn;
+  }, [loopOn]);
+
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<number | null>(null);
@@ -164,6 +177,10 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       audioElRef.current = null;
     }
     setPlayingId(null);
+    setAudioProgress(0);
+    setAudioDuration(0);
+    setSeqPos(0);
+    setSeqTotal(0);
     stepRef.current = 0;
     playingPatternRef.current = null;
   }, []);
@@ -184,8 +201,15 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
 
     if (beat.audio_url) {
       const audio = new Audio(beat.audio_url);
+      audio.loop = loopOnRef.current;
+      audio.ontimeupdate = () => {
+        setAudioProgress(audio.currentTime);
+        setAudioDuration(audio.duration || 0);
+      };
       audio.onended = stopPlayback;
       audioElRef.current = audio;
+      setAudioProgress(0);
+      setAudioDuration(0);
       setPlayingId(beat.id);
       audio.play().catch(stopPlayback);
     } else {
@@ -201,6 +225,8 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       if (savedTracks && savedTracks.length > 0) {
         const audibleTracks = savedTracks.filter((tr) => !tr.muted);
         stepRef.current = 0;
+        setSeqPos(0);
+        setSeqTotal(totalSteps);
         setPlayingId(beat.id);
 
         const stepDuration = 60000 / effectiveBpm / 4;
@@ -209,10 +235,22 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
           const time = ctx.currentTime;
           audibleTracks.forEach((track) => {
             if (track.steps[step]) {
-              makeSound(ctx, null, track.type, time, track.volume * 0.7, trackEffects(track), effectiveBpm);
+              const note = typeof track.steps[step] === 'number' ? (track.steps[step] as number) : undefined;
+              makeSound(ctx, null, track.type, time, track.volume * 0.7, trackEffects(track), effectiveBpm, step, note);
             }
           });
-          stepRef.current = (step + 1) % totalSteps;
+          setSeqPos(step);
+          const next = step + 1;
+          if (next >= totalSteps) {
+            if (loopOnRef.current) {
+              stepRef.current = 0;
+            } else {
+              stopPlayback();
+              return;
+            }
+          } else {
+            stepRef.current = next;
+          }
         };
         tick();
         intervalRef.current = window.setInterval(tick, stepDuration);
@@ -232,6 +270,8 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       } else {
         const pattern = buildPattern(beat.genre);
         stepRef.current = 0;
+        setSeqPos(0);
+        setSeqTotal(16);
         setPlayingId(beat.id);
 
         const stepDuration = 60000 / (beat.bpm || 120) / 4;
@@ -244,7 +284,18 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
               makeSound(ctx, null, hit as TrackType, time, 0.5, trackEffects(), beat.bpm || 120);
             }
           });
-          stepRef.current = (step + 1) % 16;
+          setSeqPos(step);
+          const next = step + 1;
+          if (next >= 16) {
+            if (loopOnRef.current) {
+              stepRef.current = 0;
+            } else {
+              stopPlayback();
+              return;
+            }
+          } else {
+            stepRef.current = next;
+          }
         };
         tick();
         intervalRef.current = window.setInterval(tick, stepDuration);
@@ -580,6 +631,11 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       return;
     }
 
+    if (amount < 10 || amount > 10000) {
+      setStatus(t('Сумма поддержки — от 10 до 10000'));
+      return;
+    }
+
     const msg = (supportMsg[beat.id] || '').trim();
     const { data, error } = await supabase.rpc('support_beat_author', {
       p_beat_id: beat.id,
@@ -589,7 +645,14 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     });
 
     if (error || !data?.ok) {
-      setStatus(t(data?.reason === 'insufficient' ? 'Недостаточно средств' : 'Ошибка при поддержке'));
+      const reason = data?.reason;
+      setStatus(t(
+        reason === 'insufficient' ? 'Недостаточно средств'
+        : reason === 'self' ? 'Нельзя поддержать свой бит'
+        : reason === 'invalid_amount' ? 'Сумма поддержки — от 10 до 10000'
+        : reason === 'no_beat' ? 'Бит не найден'
+        : 'Ошибка при поддержке'
+      ));
       return;
     }
 
@@ -759,14 +822,18 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       )}
 
       {beats.length === 0 && !loading && (
-        <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl p-8 text-center">
-          <p className="text-theme-muted">{t('Пока нет битов. Будь первым!')}</p>
+        <div className="empty-state spacious glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl text-center">
+          <div className="empty-icon"><Music className="w-10 h-10" /></div>
+          <p className="empty-title">{t('Пока нет битов. Будь первым!')}</p>
+          <p className="empty-text">{t('Создай первый бит в секвенсоре — он появится здесь и в Горящих треках.')}</p>
         </div>
       )}
 
       {beats.length > 0 && filteredBeats.length === 0 && (
-        <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl p-8 text-center">
-          <p className="text-theme-muted">{t('Ничего не найдено по запросу')}</p>
+        <div className="empty-state spacious glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl text-center">
+          <div className="empty-icon"><Search className="w-10 h-10" /></div>
+          <p className="empty-title">{t('Ничего не найдено по запросу')}</p>
+          <p className="empty-text">{t('Попробуйте другое название или имя автора.')}</p>
         </div>
       )}
 
@@ -936,12 +1003,45 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                       </button>
                     ) : null}
                     {isPlaying && (
-                      <button
-                        onClick={stopPlayback}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-danger text-white transition-colors"
-                      >
-                        <Pause className="w-4 h-4" /> {t('Стоп')}
-                      </button>
+                      <div className="w-full">
+                        <TrackProgress
+                          progress={
+                            beat.audio_url
+                              ? audioDuration > 0
+                                ? audioProgress / audioDuration
+                                : 0
+                              : seqTotal > 0
+                              ? seqPos / seqTotal
+                              : 0
+                          }
+                          onSeek={(ratio) => {
+                            if (beat.audio_url) {
+                              const audio = audioElRef.current;
+                              if (audio && audioDuration > 0) {
+                                const newTime = ratio * audioDuration;
+                                audio.currentTime = newTime;
+                                setAudioProgress(newTime);
+                              }
+                            } else if (seqTotal > 0) {
+                              stepRef.current = Math.round(ratio * seqTotal) % seqTotal;
+                              setSeqPos(stepRef.current);
+                            }
+                          }}
+                          loop={loopOn}
+                          onToggleLoop={() => setLoopOn((v) => !v)}
+                          timeLabel={
+                            beat.audio_url
+                              ? `${formatTime(audioProgress)} / ${formatTime(audioDuration)}`
+                              : `${seqPos + 1}/${seqTotal}`
+                          }
+                        />
+                        <button
+                          onClick={stopPlayback}
+                          className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-danger text-white transition-colors"
+                        >
+                          <Pause className="w-4 h-4" /> {t('Стоп')}
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -1136,7 +1236,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
 
           <div>
             <label className="block text-xs font-medium text-theme-muted mb-1.5">{t('Сумма')}</label>
-            <input type="number" min={10} value={supportAmount} onChange={(e) => setSupportAmount(Math.max(10, Number(e.target.value) || 0))} className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm focus:outline-none focus:border-theme-primary" />
+            <input type="number" min={10} max={10000} value={supportAmount} onChange={(e) => setSupportAmount(Math.min(10000, Math.max(10, Number(e.target.value) || 0)))} className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm focus:outline-none focus:border-theme-primary" />
             <div className="flex gap-2 mt-2">
               {[100, 500, 1000, 5000].map(v => (
                 <button key={v} onClick={() => setSupportAmount(v)} className="flex-1 py-1 text-xs bg-theme-surface2 rounded hover:bg-theme-border">{v}</button>

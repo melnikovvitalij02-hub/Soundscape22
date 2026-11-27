@@ -539,9 +539,14 @@ function ClickerGame({ onExit, onReward }: { onExit: () => void; onReward: Rewar
       <div className="panel p-6 text-center">
         <p className="text-3xl font-bold text-theme-warning">{stars.toLocaleString('ru-RU')} <span className="text-base text-theme-muted">{t('энергии')}</span></p>
         <button aria-label={t('Собрать звёздную энергию')} onPointerDown={tap} className="relative mx-auto mt-5 block h-48 w-48 touch-manipulation select-none transition active:scale-95">
-          <span className="absolute inset-2 bg-theme-warning" style={{ clipPath: 'polygon(50% 0%,61% 34%,98% 36%,68% 57%,79% 94%,50% 72%,21% 94%,32% 57%,2% 36%,39% 34%)', filter: 'drop-shadow(0 0 24px rgba(232,169,79,.65))' }} />
+          <span className="reactor-star absolute inset-2 bg-theme-warning" style={{ clipPath: 'polygon(50% 0%,61% 34%,98% 36%,68% 57%,79% 94%,50% 72%,21% 94%,32% 57%,2% 36%,39% 34%)' }} />
           <span className="absolute inset-9 bg-white/35" style={{ clipPath: 'polygon(50% 0%,61% 34%,98% 36%,68% 57%,79% 94%,50% 72%,21% 94%,32% 57%,2% 36%,39% 34%)' }} />
-          {bursts.map(b => <span key={b.id} className="pointer-events-none absolute text-lg font-bold text-theme-warning" style={{ left: b.x, top: b.y }}>+{power}</span>)}
+          {Array.from({ length: Math.min(auto, 5) }).map((_, i) => (
+            <span key={i} className="reactor-drone" style={{ ['--orbit-ms' as string]: `${8000 + i * 1700}`, ['--orbit-delay' as string]: `${i * -2200}` } as React.CSSProperties}>
+              <span />
+            </span>
+          ))}
+          {bursts.map(b => <span key={b.id} className="reactor-burst pointer-events-none absolute text-lg font-bold text-theme-warning" style={{ left: b.x, top: b.y }}>+{power}</span>)}
         </button>
         <div className="mt-5 grid grid-cols-2 gap-3">
           <button onClick={() => { const cost = power * 50; if (stars >= cost) { setStars(s => s - cost); setPower(p => p + 1); } }} disabled={stars < power * 50} className="rounded-xl border border-theme-border bg-theme-surface2 p-3 text-left transition hover:border-theme-primary disabled:opacity-40">
@@ -560,8 +565,10 @@ function ClickerGame({ onExit, onReward }: { onExit: () => void; onReward: Rewar
 
 // ===== Beat Rush =====
 const RUSH_BEATS = 16;
-const RUSH_INTERVAL = 0.6;
 const RUSH_LEAD = 1.2;
+const RUSH_MIN_BPM = 80;
+const RUSH_MAX_BPM = 160;
+const rushInterval = (bpm: number) => 60 / bpm;
 const RUSH_JUDGEMENTS = [
   { ms: 45, points: 100, label: 'Идеально' },
   { ms: 100, points: 60, label: 'Хорошо' },
@@ -586,6 +593,7 @@ function BeatRushGame({ onExit, onReward }: { onExit: () => void; onReward: Rewa
   const [score, setScore] = useState(0);
   const [currentBeat, setCurrentBeat] = useState(-1);
   const [results, setResults] = useState<(string | null)[]>(() => Array(RUSH_BEATS).fill(null));
+  const [bpm, setBpm] = useState(() => Math.round((RUSH_MIN_BPM + RUSH_MAX_BPM) / 2));
   const ctxRef = useRef<AudioContext | null>(null);
   const startRef = useRef(0);
   const judgedRef = useRef(new Set<number>());
@@ -633,6 +641,9 @@ function BeatRushGame({ onExit, onReward }: { onExit: () => void; onReward: Rewa
     const ctx = new Ctx();
     if (ctx.state === 'suspended') await ctx.resume();
     ctxRef.current = ctx;
+    const roundBpm = Math.round(RUSH_MIN_BPM + Math.random() * (RUSH_MAX_BPM - RUSH_MIN_BPM));
+    const interval = rushInterval(roundBpm);
+    setBpm(roundBpm);
     startRef.current = ctx.currentTime + RUSH_LEAD;
     judgedRef.current = new Set();
     scoreRef.current = 0;
@@ -642,23 +653,23 @@ function BeatRushGame({ onExit, onReward }: { onExit: () => void; onReward: Rewa
     setPhase('playing');
 
     for (let i = 0; i < RUSH_BEATS; i++) {
-      scheduleClick(ctx, startRef.current + i * RUSH_INTERVAL, i % 4 === 0);
+      scheduleClick(ctx, startRef.current + i * interval, i % 4 === 0);
     }
 
     beatTimerRef.current = window.setInterval(() => {
-      const beat = Math.round((ctx.currentTime - startRef.current) / RUSH_INTERVAL);
+      const beat = Math.round((ctx.currentTime - startRef.current) / interval);
       setCurrentBeat(beat >= 0 && beat < RUSH_BEATS ? beat : -1);
     }, 50);
-    finishTimerRef.current = window.setTimeout(finish, (RUSH_LEAD + RUSH_BEATS * RUSH_INTERVAL + 0.4) * 1000);
+    finishTimerRef.current = window.setTimeout(finish, (RUSH_LEAD + RUSH_BEATS * interval + 0.4) * 1000);
   };
 
   const tap = () => {
     const ctx = ctxRef.current;
     if (!ctx || phase !== 'playing') return;
     const rel = ctx.currentTime - startRef.current;
-    const idx = Math.round(rel / RUSH_INTERVAL);
+    const idx = Math.round(rel / rushInterval(bpmRef.current));
     if (idx < 0 || idx >= RUSH_BEATS || judgedRef.current.has(idx)) return;
-    const deviationMs = Math.abs(rel - idx * RUSH_INTERVAL) * 1000;
+    const deviationMs = Math.abs(rel - idx * rushInterval(bpmRef.current)) * 1000;
     const judgement = RUSH_JUDGEMENTS.find((j) => deviationMs <= j.ms);
     if (!judgement) return;
     judgedRef.current.add(idx);
@@ -666,6 +677,9 @@ function BeatRushGame({ onExit, onReward }: { onExit: () => void; onReward: Rewa
     setScore(scoreRef.current);
     setResults((prev) => prev.map((r, i) => (i === idx ? judgement.label : r)));
   };
+
+  const bpmRef = useRef(bpm);
+  bpmRef.current = bpm;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -684,12 +698,12 @@ function BeatRushGame({ onExit, onReward }: { onExit: () => void; onReward: Rewa
   }, []);
 
   return (
-    <GameShell title="Beat Rush" hint={t('Жми в такт бита или пробел. Чем точнее попадёшь в удар — тем больше очков.')} score={score} meta={phase === 'playing' ? `${Math.max(currentBeat + 1, 0)}/${RUSH_BEATS}` : undefined} onExit={onExit}>
+    <GameShell title="Beat Rush" hint={t('Жми в такт бита или пробел. Чем точнее попадёшь в удар — тем больше очков.')} score={score} meta={phase === 'playing' ? `${bpm} BPM · ${Math.max(currentBeat + 1, 0)}/${RUSH_BEATS}` : undefined} onExit={onExit}>
       <div className="panel p-6 text-center space-y-6">
         {phase === 'idle' && (
           <div className="space-y-4">
             <Music2 className="w-16 h-16 text-theme-primary mx-auto" />
-            <p className="text-theme-muted text-sm">{t('16 ударов в темпе 100 BPM. Слушай метроном и нажимай в момент щелчка.')}</p>
+            <p className="text-theme-muted text-sm">{t('16 ударов. Темп каждого раунда случаен: от 80 до 160 BPM. Слушай метроном и нажимай в момент щелчка.')}</p>
             <button onClick={start} className="px-6 py-3 bg-theme-primary text-white rounded-xl font-medium hover:opacity-90 transition-opacity inline-flex items-center gap-2">
               <Play className="w-5 h-5" /> {t('Начать')}
             </button>
@@ -697,6 +711,10 @@ function BeatRushGame({ onExit, onReward }: { onExit: () => void; onReward: Rewa
         )}
         {phase === 'playing' && (
           <div className="space-y-6">
+            <div className="flex items-center justify-center gap-2 text-xs text-theme-muted">
+              <span className="inline-block h-2 w-2 rounded-full bg-theme-primary animate-pulse" />
+              {bpm} BPM
+            </div>
             <div className="flex justify-center gap-2 flex-wrap">
               {results.map((r, i) => (
                 <span
@@ -742,12 +760,49 @@ const RAP_WORDS = [
   'время', 'путь', 'шаг', 'ритм', 'поток', 'кровь', 'база', 'гром',
 ];
 
+// Словарь рифм: к каждому слову — 3 варианта-подсказки.
+const RAP_RHYMES: Record<string, string[]> = {
+  'огонь': ['миллион', 'гармонь', 'заслон'],
+  'ночь': ['прочь', 'поточь', 'сверх'],
+  'город': ['выход', 'молодой', 'перевод'],
+  'душа': ['спеша', 'хороша', 'малыши'],
+  'свет': ['рассвет', 'кабинет', 'силуэт'],
+  'сила': ['красиво', 'машина', 'картина'],
+  'ветер': ['поветер', 'клетка', 'третий'],
+  'сердце': ['дверце', 'крыльцо', 'лицо'],
+  'бит': ['щит', 'громит', 'манит'],
+  'микрофон': ['закон', 'телефон', 'патефон'],
+  'толпа': ['труба', 'судьба', 'хлеба'],
+  'сцена': ['перемена', 'стена', 'смена'],
+  'огни': ['одни', 'внизу', 'сны'],
+  'движение': ['воображение', 'наступление', 'явление'],
+  'риск': ['микс', 'бриз', 'каприз'],
+  'мечта': ['неспроста', 'чистота', 'красота'],
+  'правда': ['надо', 'рядом', 'услада'],
+  'лёд': ['поёт', 'растёт', 'льёт'],
+  'пламя': ['память', 'над нами', 'сами'],
+  'тайна': ['случайно', 'обещание', 'значение'],
+  'голос': ['вопрос', 'всерьёз', 'мороз'],
+  'улица': ['учится', 'страница', 'граница'],
+  'небо': ['хлеба', 'где-то', 'лета'],
+  'звезда': ['вода', 'летит', 'никогда'],
+  'время': ['бремя', 'семя', 'твердя'],
+  'путь': ['суть', 'вдохнуть', 'забыть'],
+  'шаг': ['флаг', 'овраг', 'знак'],
+  'ритм': ['сбит', 'забит', 'громит'],
+  'поток': ['урок', 'восток', 'век'],
+  'кровь': ['вновь', 'любовь', 'пройдёшь'],
+  'база': ['рассказ', 'сейчас', 'глаз'],
+  'гром': ['потом', 'весной', 'дом'],
+};
+
 function FreestyleRapGame({ onExit, onReward }: { onExit: () => void; onReward: Reward }) {
   const { t } = useLocale();
   const [phase, setPhase] = useState<'idle' | 'playing' | 'done'>('idle');
   const [score, setScore] = useState(0);
   const [round, setRound] = useState(0);
   const [words, setWords] = useState<string[]>([]);
+  const [usedWords, setUsedWords] = useState<string[]>([]);
   const [rhymeInput, setRhymeInput] = useState('');
   const [feedback, setFeedback] = useState('');
   const [timeLeft, setTimeLeft] = useState(300);
@@ -761,15 +816,19 @@ function FreestyleRapGame({ onExit, onReward }: { onExit: () => void; onReward: 
   const ROUND_TIME = 300;
 
   const pickWords = () => {
-    const shuffled = [...RAP_WORDS].sort(() => Math.random() - 0.5);
+    const fresh = RAP_WORDS.filter(w => !usedWords.includes(w));
+    const pool = fresh.length >= 4 ? fresh : RAP_WORDS;
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, 4);
   };
 
   const startRound = () => {
     const w = pickWords();
     setWords(w);
-    setRhymeInput('');
-    setFeedback(`${t('Придумай рифмы к словам')}: ${w.map(wd => t(wd)).join(', ')}`);
+    setUsedWords(prev => [...prev, ...w]);
+    const hints = w.map(wd => RAP_RHYMES[wd]?.[0]).filter(Boolean).join(', ');
+    setFeedback(`${t('Придумай рифмы к словам')}: ${w.map(wd => t(wd)).join(', ')}${hints ? ` · ${t('например')}: ${hints}` : ''}`);
+    setRhymeInput(hints ? w.map(wd => `${t(wd)} / ${RAP_RHYMES[wd]?.[0] ?? ''}`).join('\n') : '');
     setTimeLeft(ROUND_TIME);
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = window.setInterval(() => {
@@ -788,6 +847,7 @@ function FreestyleRapGame({ onExit, onReward }: { onExit: () => void; onReward: 
   const start = () => {
     scoreRef.current = 0; setScore(0); roundRef.current = 0;
     rewarded.current = false;
+    setUsedWords([]);
     setPhase('playing');
     startRound();
   };
@@ -839,18 +899,18 @@ function FreestyleRapGame({ onExit, onReward }: { onExit: () => void; onReward: 
   const reset = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     pausedRef.current = false; setPaused(false);
-    setPhase('idle'); setScore(0); setRound(0); setRhymeInput(''); setFeedback(''); setTimeLeft(ROUND_TIME);
+    setPhase('idle'); setScore(0); setRound(0); setRhymeInput(''); setFeedback(''); setTimeLeft(ROUND_TIME); setUsedWords([]);
   };
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
   return (
-    <GameShell title="Freestyle Rap" hint={t('Тебе даются 4 случайных слова. Придумай рифмы за 5 минут. 5 раундов.')} score={score} meta={phase === 'playing' ? `${t('раунд')} ${round + 1}/${TOTAL_ROUNDS}` : undefined} onExit={onExit}>
+    <GameShell title="Freestyle Rap" hint={t('4 случайных слова с подсказками-рифмами. Слова не повторяются между раундами. 5 раундов по 5 минут.')} score={score} meta={phase === 'playing' ? `${t('раунд')} ${round + 1}/${TOTAL_ROUNDS}` : undefined} onExit={onExit}>
       <div className="panel p-6 space-y-4">
         {phase === 'idle' && (
           <div className="text-center space-y-4">
             <Type className="w-16 h-16 text-theme-accent mx-auto animate-pulse" />
-            <p className="text-theme-muted text-sm">{t('5 раундов. В каждом — 4 слова и 5 минут. Пиши рифмы и зарабатывай очки!')}</p>
+            <p className="text-theme-muted text-sm">{t('5 раундов. В каждом — 4 слова с рифмами-подсказками и 5 минут. Слова не повторяются!')}</p>
             <button onClick={start} className="px-6 py-3 bg-theme-primary text-white rounded-xl font-medium hover:opacity-90 transition-opacity inline-flex items-center gap-2">
               <Play className="w-5 h-5" /> {t('Начать')}
             </button>
@@ -987,8 +1047,8 @@ export default function GamesPage() {
     { k: 'invaders', t: 'Neon Invaders', d: 'Спрайты пришельцев, вражеские выстрелы, волны и управление пальцем.', c: '#a78bfa', icon: <Zap className="w-5 h-5" />, score: highScores['invaders'] || 0 },
     { k: 'pacman', t: 'Pac-Man: Neon Maze', d: 'Призраки, жизни, нормальные повороты и более живой лабиринт.', c: '#e8a94f', icon: <Ghost className="w-5 h-5" />, score: highScores['pacman'] || 0 },
     { k: 'clicker', t: 'Stellar Reactor', d: 'Звезда вместо бублика, энергия, реактор и дроны авто-сбора.', c: '#ffd9a0', icon: <Star className="w-5 h-5" />, score: highScores['clicker'] || 0 },
-    { k: 'beatrush', t: 'Beat Rush', d: 'Жми в такт бита: 16 ударов в темпе 100 BPM. Чем точнее попадёшь — тем больше очков.', c: '#38bdf8', icon: <Music2 className="w-5 h-5" />, score: highScores['beatrush'] || 0 },
-    { k: 'freestyle', t: 'Freestyle Rap', d: 'Рандомные слова — придумай рифмы за 5 минут. 5 раундов.', c: '#a78bfa', icon: <Type className="w-5 h-5" />, score: highScores['freestyle'] || 0 },
+    { k: 'beatrush', t: 'Beat Rush', d: 'Жми в такт бита: 16 ударов, темп каждого раунда случаен от 80 до 160 BPM.', c: '#38bdf8', icon: <Music2 className="w-5 h-5" />, score: highScores['beatrush'] || 0 },
+    { k: 'freestyle', t: 'Freestyle Rap', d: '4 слова с рифмами-подсказками и 5 минут на раунд. Слова не повторяются между раундами!', c: '#a78bfa', icon: <Type className="w-5 h-5" />, score: highScores['freestyle'] || 0 },
     { k: 'GarticSound', t: 'Gartic Sound', d: 'Придумывай биты - придумывай описание.', c: '#e675d3', icon: <HeadphonesIcon className="w-5 h-5" /> },
   ];
 

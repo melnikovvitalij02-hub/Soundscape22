@@ -1945,6 +1945,23 @@ body::after {
   text-align: center;
   margin-top: 60px;
 }
+.empty-state.spacious {
+  margin: 0 auto;
+  min-height: min(52vh, 480px);
+  padding: 32px 16px;
+  animation: empty-in 0.5s ease-out both;
+}
+.empty-state.spacious .empty-icon {
+  animation: empty-float 4s ease-in-out infinite;
+}
+@keyframes empty-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes empty-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
 .empty-icon {
   width: 80px;
   height: 80px;
@@ -2683,4 +2700,45 @@ body::before {
 
 @media (prefers-reduced-motion: reduce) {
   .trending-flame { animation: none; }
+}
+
+
+/* ============================================
+   STELLAR REACTOR — star pulse, orbiting drones
+   ============================================ */
+.reactor-star {
+  animation: reactor-pulse 3s ease-in-out infinite;
+}
+@keyframes reactor-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 24px rgba(232,169,79,.65)); }
+  50% { transform: scale(1.06); filter: drop-shadow(0 0 40px rgba(232,169,79,.9)); }
+}
+.reactor-drone {
+  position: absolute;
+  inset: -14px;
+  animation: reactor-orbit var(--orbit-ms, 9000ms) linear infinite;
+  animation-delay: var(--orbit-delay, 0ms);
+  pointer-events: none;
+}
+.reactor-drone > span {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #45d8b8, #38bdf8);
+  box-shadow: 0 0 10px rgba(69,216,184,.8);
+}
+@keyframes reactor-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.reactor-burst {
+  animation: reactor-burst 0.9s ease-out both;
+}
+@keyframes reactor-burst {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-46px) scale(1.35); }
 }

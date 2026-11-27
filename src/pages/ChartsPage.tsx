@@ -1,6 +1,9 @@
-import { BarChart3, Pause, Play, Music } from 'lucide-react';
+import { BarChart3, BadgeCheck, Pause, Play, Music, Megaphone } from 'lucide-react';
 import { usePlayer } from '@/context/PlayerContext';
 import { CHART_TRACKS } from '@/lib/charts';
+
+// «Авторские» — треки Виталия Мельникова, «Спонсорский» — размещение по договорённости.
+const SPONSORED_IDS = new Set(['chart-track-5']);
 
 export default function ChartsPage() {
   const { currentTrack, isPlaying, playQueue, toggle } = usePlayer();
@@ -52,7 +55,18 @@ export default function ChartsPage() {
                   </div>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`font-semibold truncate ${isCurrent ? 'text-theme-primary' : 'text-theme-text'}`}>{track.title}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className={`font-semibold truncate ${isCurrent ? 'text-theme-primary' : 'text-theme-text'}`}>{track.title}</p>
+                    {SPONSORED_IDS.has(track.id) ? (
+                      <span className="inline-flex items-center gap-1 shrink-0 rounded-full bg-theme-warning/15 text-theme-warning px-1.5 py-0.5 text-[10px] font-semibold">
+                        <Megaphone className="w-3 h-3" /> Спонсорский
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 shrink-0 rounded-full bg-theme-primary/15 text-theme-primary px-1.5 py-0.5 text-[10px] font-semibold">
+                        <BadgeCheck className="w-3 h-3" /> Авторский
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-theme-muted truncate">{track.artist}</p>
                 </div>
                 {isActivelyPlaying && (

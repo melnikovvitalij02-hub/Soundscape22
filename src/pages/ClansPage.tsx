@@ -12,6 +12,10 @@ import {
   X,
   Loader2,
   Swords,
+  Search,
+  Lock,
+  Mail,
+  Check,
 } from 'lucide-react';
 
 type Clan = {
@@ -20,6 +24,14 @@ type Clan = {
   description: string;
   leader_id: string;
   tag: string;
+  is_private: boolean | null;
+  created_at: string;
+};
+
+type ClanInvite = {
+  id: string;
+  clan_id: string;
+  status: string;
   created_at: string;
 };
 
@@ -49,6 +61,10 @@ export default function ClansPage() {
   const [selectedClan, setSelectedClan] = useState<ClanWithMeta | null>(null);
   const [members, setMembers] = useState<(ClanMember & { profile: Profile | null })[]>([]);
   const [status, setStatus] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [newPrivate, setNewPrivate] = useState(false);
+  const [myInvites, setMyInvites] = useState<(ClanInvite & { clan: Clan | null })[]>([]);
+  const [inviteBusy, setInviteBusy] = useState(false);
 
   const fetchClans = useCallback(async () => {
     setLoading(true);
@@ -92,9 +108,21 @@ export default function ClansPage() {
     setLoading(false);
   }, [profile]);
 
+  const fetchInvites = useCallback(async () => {
+    if (!profile || isGuest) { setMyInvites([]); return; }
+    const { data } = await supabase
+      .from('clan_invites')
+      .select('id, clan_id, status, created_at, clan:clans(id, name, description, leader_id, tag, is_private, created_at)')
+      .eq('invitee_id', profile.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (data) setMyInvites((data as unknown as (ClanInvite & { clan: Clan | null })[]) ?? []);
+  }, [profile, isGuest]);
+
   useEffect(() => {
     fetchClans();
-  }, [fetchClans]);
+    fetchInvites();
+  }, [fetchClans, fetchInvites]);
 
   const createClan = async () => {
     if (!profile || isGuest) return;
@@ -102,34 +130,29 @@ export default function ClansPage() {
       setStatus(t('Заполните название и тег'));
       return;
     }
-    const { data, error } = await supabase
-      .from('clans')
-      .insert({
-        name: newName.trim(),
-        tag: newTag.trim().toUpperCase().slice(0, 4),
-        description: newDesc.trim(),
-        leader_id: profile.id,
-      })
-      .select('*')
-      .maybeSingle();
-    if (error || !data) {
-      setStatus(t('Ошибка при создании клана'));
-      return;
-    }
-    const clan = data as Clan;
-    const { error: memErr } = await supabase.from('clan_members').insert({
-      clan_id: clan.id,
-      user_id: profile.id,
-      role: 'leader',
+    const { data, error } = await supabase.rpc('clan_create', {
+      p_name: newName.trim(),
+      p_tag: newTag.trim(),
+      p_description: newDesc.trim(),
+      p_is_private: newPrivate,
     });
-    if (memErr) {
-      setStatus(t('Ошибка при добавлении лидера'));
+    const res = (data as unknown as { ok: boolean; reason: string; clan_id: string }[] | null)?.[0];
+    if (error || !res?.ok) {
+      const reason = res?.reason;
+      setStatus(t(
+        reason === 'tag_taken' ? 'Такой тег уже занят'
+        : reason === 'name_taken' ? 'Клан с таким названием уже есть'
+        : reason === 'already_in_clan' ? 'Вы уже состоите в клане'
+        : reason === 'invalid_tag' ? 'Тег: 2-4 символа, буквы и цифры'
+        : 'Ошибка при создании клана'
+      ));
       return;
     }
     setShowCreate(false);
     setNewName('');
     setNewTag('');
     setNewDesc('');
+    setNewPrivate(false);
     await addXp(30);
     setStatus(t('Клан создан! +30 XP'));
     setTimeout(() => setStatus(null), 2500);
@@ -139,13 +162,16 @@ export default function ClansPage() {
   const joinClan = async (clan: ClanWithMeta) => {
     if (!profile || isGuest) return;
     if (clan.isMember) return;
-    const { error } = await supabase.from('clan_members').insert({
-      clan_id: clan.id,
-      user_id: profile.id,
-      role: 'member',
-    });
-    if (error) {
-      setStatus(t('Ошибка при вступлении в клан'));
+    const { data, error } = await supabase.rpc('clan_join', { p_clan_id: clan.id });
+    const res = (data as unknown as { ok: boolean; reason: string }[] | null)?.[0];
+    if (error || !res?.ok) {
+      const reason = res?.reason;
+      setStatus(t(
+        reason === 'invite_required' ? 'Клан закрытый — нужна приглашение от лидера'
+        : reason === 'already_in_clan' ? 'Вы уже состоите в клане'
+        : 'Ошибка при вступлении в клан'
+      ));
+      setTimeout(() => setStatus(null), 3000);
       return;
     }
     setStatus(`${t('Вы вступили в клан')} ${clan.name}`);
@@ -153,15 +179,35 @@ export default function ClansPage() {
     fetchClans();
   };
 
+  const respondInvite = async (inviteId: string, accept: boolean) => {
+    if (!profile || isGuest || inviteBusy) return;
+    setInviteBusy(true);
+    const { data, error } = await supabase.rpc('clan_respond', { p_invite_id: inviteId, p_accept: accept });
+    const res = (data as unknown as { ok: boolean; reason: string }[] | null)?.[0];
+    setInviteBusy(false);
+    if (error || !res?.ok) {
+      setStatus(t('Не удалось обработать приглашение'));
+      setTimeout(() => setStatus(null), 3000);
+      fetchInvites();
+      return;
+    }
+    setStatus(accept ? t('Приглашение принято — вы в клане!') : t('Приглашение отклонено'));
+    setTimeout(() => setStatus(null), 2500);
+    fetchInvites();
+    fetchClans();
+  };
+
   const leaveClan = async (clan: ClanWithMeta) => {
     if (!profile) return;
-    const { error } = await supabase
-      .from('clan_members')
-      .delete()
-      .eq('clan_id', clan.id)
-      .eq('user_id', profile.id);
-    if (error) {
-      setStatus(t('Ошибка при выходе из клана'));
+    const { data, error } = await supabase.rpc('clan_leave');
+    const res = (data as unknown as { ok: boolean; reason: string }[] | null)?.[0];
+    if (error || !res?.ok) {
+      const reason = res?.reason;
+      setStatus(t(
+        reason === 'leader_must_transfer' ? 'Лидер не может выйти: сначала передайте лидерство или распустите клан'
+        : 'Ошибка при выходе из клана'
+      ));
+      setTimeout(() => setStatus(null), 3000);
       return;
     }
     setStatus(`${t('Вы покинули клан')} ${clan.name}`);
@@ -219,6 +265,15 @@ export default function ClansPage() {
 
       {/* Leaderboard */}
       <div className="glass-surface bg-theme-surface/50 border border-theme-border rounded-2xl p-4">
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-muted" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('Поиск по названию или тегу клана...')}
+            className="w-full pl-10 pr-4 py-2.5 bg-theme-surface2 border border-theme-border rounded-xl text-theme-text text-sm focus:outline-none focus:border-theme-primary transition-colors"
+          />
+        </div>
         <h2 className="text-sm font-medium text-theme-text mb-3 flex items-center gap-2">
           <Trophy className="w-4 h-4 text-theme-warning" />
           {t('Лидерборд кланов')}
@@ -231,7 +286,13 @@ export default function ClansPage() {
           <p className="text-theme-muted text-sm text-center py-8">{t('Пока нет кланов. Создай первый!')}</p>
         ) : (
           <div className="space-y-2">
-            {clans.map((clan, i) => (
+            {clans
+              .filter((c) => {
+                const q = search.trim().toLowerCase();
+                if (!q) return true;
+                return c.name.toLowerCase().includes(q) || c.tag.toLowerCase().includes(q);
+              })
+              .map((clan, i) => (
               <div
                 key={clan.id}
                 className={`clan-card flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
@@ -248,7 +309,10 @@ export default function ClansPage() {
                   [{clan.tag}]
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-theme-text font-medium truncate">{clan.name}</p>
+                  <p className="text-theme-text font-medium truncate flex items-center gap-1.5">
+                    {clan.name}
+                    {clan.is_private && <Lock className="w-3.5 h-3.5 text-theme-warning shrink-0" title={t('Закрытый клан — только по приглашению')} />}
+                  </p>
                   <p className="text-xs text-theme-muted truncate">{clan.description || t('Без описания')}</p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0 text-xs">
@@ -282,6 +346,42 @@ export default function ClansPage() {
           </div>
         )}
       </div>
+
+      {/* Incoming invites */}
+      {myInvites.length > 0 && (
+        <div className="glass-surface bg-theme-surface/50 border border-theme-warning/40 rounded-2xl p-4 space-y-2">
+          <h3 className="text-sm font-medium text-theme-text flex items-center gap-2">
+            <Mail className="w-4 h-4 text-theme-warning" />
+            {t('Приглашения в кланы')}
+          </h3>
+          {myInvites.map((inv) => (
+            <div key={inv.id} className="flex items-center justify-between gap-3 p-2.5 bg-theme-surface2 rounded-xl">
+              <div className="min-w-0 flex items-center gap-2">
+                <span className="px-2 py-1 rounded-md bg-theme-primary text-white text-xs font-bold shrink-0">
+                  [{inv.clan?.tag ?? '???'}]
+                </span>
+                <p className="text-sm text-theme-text truncate">{inv.clan?.name || t('Неизвестный клан')}</p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => respondInvite(inv.id, true)}
+                  disabled={inviteBusy}
+                  className="px-3 py-1.5 bg-theme-success text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-1"
+                >
+                  <Check className="w-3.5 h-3.5" /> {t('Принять')}
+                </button>
+                <button
+                  onClick={() => respondInvite(inv.id, false)}
+                  disabled={inviteBusy}
+                  className="px-3 py-1.5 bg-theme-surface2 border border-theme-border rounded-lg text-xs text-theme-muted hover:text-theme-text disabled:opacity-50"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Create modal */}
       {showCreate && (
@@ -322,6 +422,16 @@ export default function ClansPage() {
                 rows={3}
                 className="w-full px-3 py-2 bg-theme-surface2 border border-theme-border rounded-lg text-theme-text text-sm focus:outline-none focus:border-theme-primary resize-none"
               />
+              <label className="flex items-center gap-2 text-sm text-theme-text cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={newPrivate}
+                  onChange={(e) => setNewPrivate(e.target.checked)}
+                  className="w-4 h-4 accent-theme-primary"
+                />
+                <Lock className="w-4 h-4 text-theme-warning" />
+                {t('Закрытый клан — вступление только по приглашению')}
+              </label>
             </div>
             <button
               onClick={createClan}
@@ -377,7 +487,14 @@ export default function ClansPage() {
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-theme-text truncate">{m.profile?.username || t('Аноним')}</p>
+                      <p className="text-sm text-theme-text truncate">
+                        {m.profile?.username || t('Аноним')}
+                        {m.profile?.clan_tag && (
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded bg-theme-primary/15 text-theme-primary text-[10px] font-bold align-middle">
+                            [{m.profile.clan_tag}]
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-theme-muted">{t('Ур.')} {m.profile?.level || 1} · {m.profile?.xp || 0} XP</p>
                     </div>
                     {m.role === 'leader' && (

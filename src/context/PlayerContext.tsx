@@ -23,6 +23,8 @@ type PlayerContextType = {
   stop: () => void;
   queue: PlayerTrack[];
   playQueue: (tracks: PlayerTrack[], startIndex?: number) => void;
+  loop: boolean;
+  toggleLoop: () => void;
 };
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -35,7 +37,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [volume, setVolumeState] = useState(0.8);
   const [queue, setQueue] = useState<PlayerTrack[]>([]);
   const [queueIndex, setQueueIndex] = useState(-1);
+  const [loop, setLoop] = useState(false);
+  const loopRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => { loopRef.current = loop; }, [loop]);
+
+  const toggleLoop = useCallback(() => setLoop((v) => !v), []);
 
   useEffect(() => {
     const audio = new Audio();
@@ -47,6 +55,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setDuration(audio.duration || 0);
     };
     const onEnd = () => {
+      if (loopRef.current && audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {});
+        return;
+      }
       setIsPlaying(false);
       nextRef.current();
     };
@@ -147,7 +160,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   nextRef.current = next;
 
   return (
-    <PlayerContext.Provider value={{ currentTrack, isPlaying, progress, duration, volume, play, toggle, seek, setVolume, next, prev, stop, queue, playQueue }}>
+    <PlayerContext.Provider value={{ currentTrack, isPlaying, progress, duration, volume, play, toggle, seek, setVolume, next, prev, stop, queue, playQueue, loop, toggleLoop }}>
       {children}
     </PlayerContext.Provider>
   );

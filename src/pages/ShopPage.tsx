@@ -6,6 +6,7 @@ import {
   Package, Palette, Zap, Music, Download, Banknote, History, ArrowDownToLine,
 } from 'lucide-react';
 import CoinPurchase from '@/components/CoinPurchase';
+import GemWithdraw from '@/components/GemWithdraw';
 import { useLocale } from '@/context/LocaleContext';
 import PurchaseHistory from '@/components/PurchaseHistory';
 import StickerChest from '@/components/StickerChest';
@@ -267,6 +268,7 @@ export default function ShopPage() {
     if (activeTab === 'coins') return (
       <div className="space-y-6">
         <CoinPurchase />
+        <GemWithdraw />
       </div>
     );
     if (activeTab === 'history') return <PurchaseHistory />;
@@ -396,7 +398,8 @@ export default function ShopPage() {
     );
     if (activeTab === 'stickers') return (
       <div className="space-y-6">
-        <StickerChest />
+        {/* Сундук стикеров временно скрыт по запросу */}
+        {/* <StickerChest /> */}
         {stickers.length === 0 ? (
           <EmptyState icon={Sparkles} text={t('Стикеры скоро появятся')} />
         ) : (

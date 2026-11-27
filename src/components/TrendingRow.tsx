@@ -1,4 +1,4 @@
-import { Clock, Flame, Heart, Music, Pause, Play, Zap } from 'lucide-react';
+import { Clock, Flame, Heart, Music, Pause, Play, Zap, Megaphone } from 'lucide-react';
 import { useLocale } from '@/context/LocaleContext';
 import type { TrendingBeat } from '@/lib/trending';
 
@@ -74,6 +74,11 @@ export default function TrendingRow({ beat, index, now, playing, isOwn, onToggle
         </p>
         {(top3Left || boostLeft) && (
           <div className="mt-2 flex flex-wrap gap-1.5">
+            {(top3Left || boostLeft) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-theme-warning/15 text-theme-warning px-2 py-0.5 text-xs font-semibold">
+                <Megaphone className="w-3 h-3" /> {t('Спонсорское продвижение')}
+              </span>
+            )}
             {top3Left && (
               <span className="inline-flex items-center gap-1 rounded-full border border-theme-border bg-theme-surface2 px-2 py-0.5 text-xs text-theme-text">
                 <Clock className="w-3 h-3 text-orange-500" /> {t('Топ-3')} · {top3Left}
@@ -88,9 +93,9 @@ export default function TrendingRow({ beat, index, now, playing, isOwn, onToggle
         )}
       </div>
 
-      <div className="hidden sm:flex flex-col items-end gap-1 text-xs text-theme-muted flex-shrink-0">
+      <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1 text-xs text-theme-muted flex-shrink-0">
         <span className="text-base font-semibold text-theme-text">{beat.score}</span>
-        <span>{t('рейтинг')}</span>
+        <span className="hidden sm:inline">{t('рейтинг')}</span>
         <span className="flex items-center gap-2">
           <span>{beat.play_count} {t('прослуш.')}</span>
           <span className="flex items-center gap-0.5">

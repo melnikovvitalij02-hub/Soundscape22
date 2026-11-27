@@ -52,6 +52,7 @@ const RELEASE_SECONDS = 0.25;
 export type LoadedSample = { midi: number; buffer: AudioBuffer };
 
 const samplesByContext = new WeakMap<AudioContext, Map<InstrumentId, Promise<LoadedSample[]>>>();
+const resolvedByContext = new WeakMap<AudioContext, Map<InstrumentId, LoadedSample[]>>();
 
 function parseNoteName(name: string): number | null {
   const match = /^([A-G])([#sb]?)(-?\d+)$/.exec(name);
@@ -93,7 +94,20 @@ export function loadInstrumentSamples(ctx: AudioContext, id: InstrumentId): Prom
   const pending = fetchSoundfont(ctx, INSTRUMENT_SOURCES[id].soundfont);
   cache.set(id, pending);
   pending.catch(() => cache?.delete(id));
+  pending.then((loaded) => {
+    let resolved = resolvedByContext.get(ctx);
+    if (!resolved) {
+      resolved = new Map();
+      resolvedByContext.set(ctx, resolved);
+    }
+    resolved.set(id, loaded);
+  });
   return pending;
+}
+
+// Synchronous access to already-loaded samples (null while loading or failed)
+export function getCachedSamples(ctx: AudioContext, id: InstrumentId): LoadedSample[] | null {
+  return resolvedByContext.get(ctx)?.get(id) ?? null;
 }
 
 function nearestSample(samples: LoadedSample[], midi: number): LoadedSample | null {

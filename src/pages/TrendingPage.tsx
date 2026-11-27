@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Flame, Loader2, RefreshCw, Trophy, Upload, Zap, Lock, Calendar } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLocale } from '@/context/LocaleContext';
@@ -6,6 +6,7 @@ import { makeSound, type TrackType } from '@/pages/BeatComposerPage';
 import { STEPS, buildPattern, trackEffects } from '@/lib/beatPlayback';
 import { fetchTrendingBeats, recordBeatPlay, type TrendingBeat } from '@/lib/trending';
 import TrendingBoostModal from '@/components/TrendingBoostModal';
+import TrackProgress from '@/components/TrackProgress';
 import TrendingRow from '@/components/TrendingRow';
 //import UploadBeatModal from '@/components/UploadBeatModal';
 
@@ -28,6 +29,22 @@ export default function TrendingPage() {
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<number | null>(null);
   const stepRef = useRef(0);
+  const playingRef = useRef<TrendingBeat | null>(null);
+  const loopOnRef = useRef(false);
+  const [loopOn, setLoopOn] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [seqPos, setSeqPos] = useState(0);
+  const [seqTotal, setSeqTotal] = useState(0);
+
+  const toggleLoop = useCallback(() => {
+    setLoopOn((prev) => {
+      const next = !prev;
+      loopOnRef.current = next;
+      if (audioElRef.current) audioElRef.current.loop = next;
+      return next;
+    });
+  }, []);
 
   const loadBeats = useCallback(async () => {
     try {
@@ -65,6 +82,11 @@ export default function TrendingPage() {
       audioElRef.current = null;
     }
     stepRef.current = 0;
+    playingRef.current = null;
+    setSeqPos(0);
+    setSeqTotal(0);
+    setAudioProgress(0);
+    setAudioDuration(0);
     setPlayingId(null);
   }, []);
 
@@ -96,8 +118,15 @@ export default function TrendingPage() {
 
     if (beat.audio_url) {
       const audio = new Audio(beat.audio_url);
+      audio.loop = loopOnRef.current;
+      audio.ontimeupdate = () => {
+        setAudioProgress(audio.currentTime);
+        setAudioDuration(audio.duration || 0);
+      };
       audio.onended = stopPlayback;
       audioElRef.current = audio;
+      setAudioProgress(0);
+      setAudioDuration(0);
       setPlayingId(beat.beat_id);
       audio.play().catch(stopPlayback);
       countPlay(beat.beat_id);
@@ -121,16 +150,32 @@ export default function TrendingPage() {
           const hit = track[step];
           if (typeof hit === 'string') makeSound(ctx, null, hit as TrackType, time, 0.5, trackEffects(), bpm);
         });
-        stepRef.current = (step + 1) % STEPS;
+        const next = step + 1;
+        if (next >= STEPS) {
+          if (loopOnRef.current) stepRef.current = 0; else { stopPlayback(); return; }
+        } else {
+          stepRef.current = next;
+        }
       } else {
         savedTracks.forEach((track) => {
-          if (track.steps[step]) makeSound(ctx, null, track.type, time, track.volume * 0.7, trackEffects(track), bpm);
+          if (track.steps[step]) {
+            const note = typeof track.steps[step] === 'number' ? (track.steps[step] as number) : undefined;
+            makeSound(ctx, null, track.type, time, track.volume * 0.7, trackEffects(track), bpm, step, note);
+          }
         });
-        stepRef.current = (step + 1) % totalSteps;
+        const next = step + 1;
+        if (next >= totalSteps) {
+          if (loopOnRef.current) stepRef.current = 0; else { stopPlayback(); return; }
+        } else {
+          stepRef.current = next;
+        }
       }
+      setSeqPos(stepRef.current);
     };
 
     stepRef.current = 0;
+    setSeqPos(0);
+    setSeqTotal(pattern ? STEPS : totalSteps);
     setPlayingId(beat.beat_id);
     tick();
     intervalRef.current = window.setInterval(tick, 60000 / bpm / 4);
@@ -143,6 +188,10 @@ export default function TrendingPage() {
   };
 
   const canBoost = Boolean(profile && !isGuest && profile.is_premium);
+  const playingBeat = useMemo(
+    () => beats.find((b) => b.beat_id === playingId) ?? null,
+    [beats, playingId]
+  );
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
@@ -168,9 +217,9 @@ export default function TrendingPage() {
         <div className="rounded-xl border border-theme-primary/30 bg-theme-primary/10 p-4 flex items-start gap-3">
           <Calendar className="w-5 h-5 text-theme-primary shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-medium text-theme-text">{t('🗓 Ежемесячный сброс рейтинга')}</p>
+            <p className="font-medium text-theme-text">{t('🗓 Рейтинг без сброса')}</p>
             <p className="text-theme-muted mt-1">
-              {t('1-го числа каждого месяца счётчики прослушиваний и лайков обнуляются. Активные бусты продолжают действовать и сохраняют позиции трека до конца их срока.')}
+              {t('Рейтинг строится на прослушиваниях, лайках и бустах за всё время и обнуляется только вместе с треком. Продвижение топ-3 действует ограниченный срок, а вечные слоты — бессрочно.')}
             </p>
           </div>
         </div>
@@ -214,6 +263,50 @@ export default function TrendingPage() {
             />
           ))}
         </ol>
+      )}
+      {playingId && (
+        <div className="mt-4 rounded-2xl border border-theme-border bg-theme-surface p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <button
+              type="button"
+              onClick={stopPlayback}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-danger text-white"
+            >
+              <Flame className="w-3.5 h-3.5" /> Стоп
+            </button>
+          </div>
+          <TrackProgress
+            progress={
+              playingBeat?.audio_url
+                ? audioDuration > 0
+                  ? audioProgress / audioDuration
+                  : 0
+                : seqTotal > 0
+                ? seqPos / seqTotal
+                : 0
+            }
+            onSeek={(ratio) => {
+              if (playingBeat?.audio_url) {
+                const audio = audioElRef.current;
+                if (audio && audioDuration > 0) {
+                  const newTime = ratio * audioDuration;
+                  audio.currentTime = newTime;
+                  setAudioProgress(newTime);
+                }
+              } else if (seqTotal > 0) {
+                stepRef.current = Math.round(ratio * seqTotal) % seqTotal;
+                setSeqPos(stepRef.current);
+              }
+            }}
+            loop={loopOn}
+            onToggleLoop={toggleLoop}
+            timeLabel={
+              playingBeat?.audio_url
+                ? `${Math.floor(audioProgress / 60)}:${String(Math.floor(audioProgress % 60)).padStart(2, '0')} / ${Math.floor(audioDuration / 60)}:${String(Math.floor(audioDuration % 60)).padStart(2, '0')}`
+                : `${seqPos + 1}/${seqTotal}`
+            }
+          />
+        </div>
       )}
 
       {boostOpen && (

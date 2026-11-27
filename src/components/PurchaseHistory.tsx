@@ -60,23 +60,6 @@ export default function PurchaseHistory() {
         .order('created_at', { ascending: false })
         .limit(50);
       setRows((data ?? []) as PaymentRow[]);
-      console.log('profile.id =', profile.id, '| вернулось строк =', (data ?? []).length, '| первые user_id =', (data ?? []).slice(0,3).map(r => r.id));
-      const refetch = async () => {
-        const { data } = await supabase.from('payments')
-          .select('id, label, amount, status, payment_type, created_at')
-          .eq('user_id', profile.id).order('created_at', { ascending: false }).limit(50);
-        setRows((data ?? []) as PaymentRow[]);
-      };
-      console.log('Мои покупки:', data?.map(r => ({ id: r.id, user_id: r.user_id, label: r.label })));
-      await refetch(); setLoading(false);
-      
-      const channel = supabase
-        .channel('my-payments')
-        .on('postgres_changes',
-          { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${profile.id}` },
-          () => refetch())
-        .subscribe();
-      return () => { supabase.removeChannel(channel); };
       setLoading(false);
     })();
   }, [profile, isGuest]);

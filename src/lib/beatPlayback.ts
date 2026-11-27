@@ -6,7 +6,7 @@ export type SavedTrack = {
   type: TrackType;
   volume: number;
   muted: boolean;
-  steps: boolean[];
+  steps: (boolean | number)[];
   reverb?: number;
   delay?: number;
   filter?: number;

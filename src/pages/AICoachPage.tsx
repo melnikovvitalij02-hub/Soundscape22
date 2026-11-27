@@ -464,7 +464,7 @@ function createCoachTrack(type: TrackType): CoachTrack {
 export default function AICoachPage({ onExit }: { onExit?: () => void }) {
   const { session, isGuest, profile } = useAuth();
   const { t } = useLocale();
-  const [mode, setMode] = useState<'create' | 'library'>('create');
+  const [mode, setMode] = useState<'create' | 'library'>('library');
   const [beats, setBeats] = useState<Beat[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -823,28 +823,6 @@ export default function AICoachPage({ onExit }: { onExit?: () => void }) {
           )}
         </div>
 
-        {/* Mode tabs */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => { setMode('create'); stopPlayback(); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${
-              mode === 'create' ? 'bg-theme-primary text-white' : 'bg-theme-surface/50 border border-theme-border text-theme-muted hover:text-theme-text'
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            {t('Создать бит')}
-          </button>
-          <button
-            onClick={() => { setMode('library'); stopPlayback(); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${
-              mode === 'library' ? 'bg-theme-primary text-white' : 'bg-theme-surface/50 border border-theme-border text-theme-muted hover:text-theme-text'
-            }`}
-          >
-            <Music className="w-4 h-4" />
-            {t('Мои биты')}
-          </button>
-        </div>
-
         {isGuest ? (
           <EmptyState icon={<Music className="w-10 h-10 mb-3 opacity-50" />} text={t('Войдите в аккаунт, чтобы тренер разобрал ваши биты.')} />
         ) : mode === 'create' ? (
@@ -988,7 +966,7 @@ export default function AICoachPage({ onExit }: { onExit?: () => void }) {
             <Loader2 className="w-6 h-6 animate-spin mr-2" /> {t('Загрузка битов…')}
           </div>
         ) : beats.length === 0 ? (
-          <EmptyState icon={<Music className="w-10 h-10 mb-3 opacity-50" />} text={t('У вас пока нет сохранённых битов. Перейдите во вкладку «Создать бит».')} />
+          <EmptyState icon={<Music className="w-10 h-10 mb-3 opacity-50" />} text={t('У вас пока нет сохранённых битов. Создайте бит в Бит-секвенсоре — он появится здесь.')} />
         ) : (
           <div className="grid md:grid-cols-[280px_1fr] gap-6">
             {/* Beat list */}

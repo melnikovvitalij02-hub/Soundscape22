@@ -1,6 +1,6 @@
 import { usePlayer } from '@/context/PlayerContext';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react';
-import { useState } from 'react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, X, Repeat } from 'lucide-react';
+import { useRef, useState } from 'react';
 
 function formatTime(s: number): string {
   if (!s || isNaN(s)) return '0:00';
@@ -10,9 +10,19 @@ function formatTime(s: number): string {
 }
 
 export default function MiniPlayer() {
-  const { currentTrack, isPlaying, progress, duration, volume, toggle, seek, setVolume, next, prev, stop } = usePlayer();
+  const { currentTrack, isPlaying, progress, duration, volume, toggle, seek, setVolume, next, prev, stop, loop, toggleLoop } = usePlayer();
   const [muted, setMuted] = useState(false);
   const [showVol, setShowVol] = useState(false);
+  const barRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+
+  const seekTo = (clientX: number) => {
+    const el = barRef.current;
+    if (!el || duration <= 0) return;
+    const rect = el.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    seek(ratio * duration);
+  };
 
   if (!currentTrack) return null;
 
@@ -21,13 +31,27 @@ export default function MiniPlayer() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 lg:left-64">
       <div className="glass-surface bg-theme-surface/95 backdrop-blur-xl border-t border-theme-border">
-        {/* Progress bar */}
-        <div className="h-1 w-full bg-theme-surface2 cursor-pointer group" onClick={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const ratio = (e.clientX - rect.left) / rect.width;
-          seek(ratio * duration);
-        }}>
-          <div className="h-full bg-gradient-to-r from-theme-warning to-theme-primary transition-all" style={{ width: `${pct}%` }} />
+        {/* Progress bar with drag seek */}
+        <div
+          ref={barRef}
+          className="h-1.5 w-full bg-theme-surface2 cursor-pointer group touch-none"
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            draggingRef.current = true;
+            seekTo(e.clientX);
+          }}
+          onPointerMove={(e) => {
+            if (draggingRef.current) seekTo(e.clientX);
+          }}
+          onPointerUp={(e) => {
+            draggingRef.current = false;
+            e.currentTarget.releasePointerCapture(e.pointerId);
+          }}
+          onPointerCancel={() => {
+            draggingRef.current = false;
+          }}
+        >
+          <div className="h-full bg-gradient-to-r from-theme-warning to-theme-primary" style={{ width: `${pct}%` }} />
         </div>
 
         <div className="flex items-center gap-3 px-4 py-3">
@@ -59,6 +83,15 @@ export default function MiniPlayer() {
             </button>
             <button onClick={next} className="p-2 text-theme-muted hover:text-theme-text transition-colors">
               <SkipForward className="w-4 h-4" fill="currentColor" />
+            </button>
+            <button
+              onClick={toggleLoop}
+              title={loop ? 'Выключить повтор' : 'Включить повтор трека'}
+              className={`p-2 rounded-lg transition-colors ${
+                loop ? 'text-theme-warning bg-theme-warning/10' : 'text-theme-muted hover:text-theme-text'
+              }`}
+            >
+              <Repeat className="w-4 h-4" />
             </button>
             <button
               onClick={stop}

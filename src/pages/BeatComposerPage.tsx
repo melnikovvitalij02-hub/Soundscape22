@@ -10,14 +10,22 @@ import {
 import { useLocale } from '@/context/LocaleContext';
 import PublishBeatModal from '@/components/PublishBeatModal';
 import { reachGoal } from '@/lib/metrika';
+import { loadInstrumentSamples, getCachedSamples, playSampledNote, type InstrumentId } from '@/lib/instrumentSamples';
 
 export type TrackType = 'kick' | 'snare' | 'hihat' | 'openhat' | 'clap' | 'tom' | 'bass' | 'synth' | 'pad' | 'crash' | 'rim' | 'perc' | 'piano' | 'violin' | 'guitar' | 'flute' | 'sax' | 'drums';
+
+// Sample-pack instruments (GM soundfonts, unlocked by owning any sample pack)
+export type SampleInstrumentId = 'rockguitar' | 'trumpet' | 'cello' | 'vocmale' | 'vocfemale';
+export const SAMPLE_INSTRUMENT_IDS: SampleInstrumentId[] = ['rockguitar', 'trumpet', 'cello', 'vocmale', 'vocfemale'];
+export function isSampleInstrument(type: string): type is SampleInstrumentId {
+  return (SAMPLE_INSTRUMENT_IDS as string[]).includes(type);
+}
 
 type Track = {
   id: string;
   name: string;
   type: TrackType;
-  steps: boolean[];
+  steps: (boolean | number)[];
   volume: number;
   muted: boolean;
   color: string;
@@ -89,7 +97,23 @@ const KEY_MAP: Record<string, number> = {
 };
 
 const MELODIC_TYPES: TrackType[] = ['synth', 'pad', 'piano', 'bass', 'violin', 'guitar', 'flute', 'sax'];
-const PENTATONIC_SCALE = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29, 31, 34, 36];
+
+// Sample-pack instruments: presets for tracks backed by GM soundfont samples
+const SAMPLE_PRESETS: (Omit<Track, 'id' | 'steps' | 'muted'> & { type: SampleInstrumentId })[] = [
+  { name: 'Рок-гитара', type: 'rockguitar', volume: 0.55, color: 'bg-theme-danger', reverb: 0.1, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0 },
+  { name: 'Труба', type: 'trumpet', volume: 0.5, color: 'bg-theme-warning', reverb: 0.15, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0 },
+  { name: 'Виолончель', type: 'cello', volume: 0.5, color: 'bg-theme-accent', reverb: 0.2, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0 },
+  { name: 'Голос (муж.)', type: 'vocmale', volume: 0.5, color: 'bg-theme-success', reverb: 0.25, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0 },
+  { name: 'Голос (жен.)', type: 'vocfemale', volume: 0.5, color: 'bg-theme-success', reverb: 0.25, delay: 0, filter: 0, pitch: 0, distortion: 0, bitcrush: 0, compressor: 0, eqLow: 0, eqMid: 0, eqHigh: 0, pan: 0, offset: 0, length: 1.0, finePitch: 0 },
+];
+
+// Per-step pitch for melodic instruments: number step = MIDI note to play.
+const stepMidi = (step: boolean | number | undefined): number | null =>
+  typeof step === 'number' ? step : null;
+
+function stepIsOn(step: boolean | number | undefined): boolean {
+  return typeof step === 'number' ? true : !!step;
+}
 
 function createTrack(preset: Omit<Track, 'id' | 'steps' | 'muted'>): Track {
   return {
@@ -100,7 +124,7 @@ function createTrack(preset: Omit<Track, 'id' | 'steps' | 'muted'>): Track {
   };
 }
 
-function ensureStepsLength(steps: boolean[], length: number): boolean[] {
+function ensureStepsLength(steps: (boolean | number)[], length: number): (boolean | number)[] {
   if (steps.length >= length) return steps.slice(0, length);
   return [...steps, ...Array(length - steps.length).fill(false)];
 }
@@ -111,7 +135,9 @@ function normalizeTrack(t: Partial<Track>): Track {
     id: t.id || crypto.randomUUID(),
     name: t.name || preset.name,
     type: (t.type || preset.type) as TrackType,
-    steps: Array.isArray(t.steps) ? t.steps.map((s) => !!s) : Array(STEPS).fill(false),
+    steps: Array.isArray(t.steps)
+      ? t.steps.map((s) => (typeof s === 'number' ? s : !!s))
+      : Array(STEPS).fill(false),
     volume: t.volume ?? preset.volume,
     muted: t.muted ?? false,
     color: t.color || preset.color,
@@ -175,6 +201,7 @@ export function makeSound(
   effects: ExtendedEffects,
   bpm: number,
   stepIndex?: number,
+  stepPitch?: number,
 ) {
     // Вычисляем реальное время старта с учётом offset (сдвиг в шагах)
 
@@ -348,6 +375,21 @@ export function makeSound(
 
   function connectToChain(node: AudioNode) {
     node.connect(hasEffects ? chainInput : masterGain);
+  }
+
+  // Sample-pack instruments (GM soundfonts): fire-and-forget load, play when cached
+  if (isSampleInstrument(type)) {
+    const packVolume = volume * 0.9;
+    const duration = 0.45 * safeLength;
+    if (isFinite(actualTime) && isFinite(packVolume)) {
+      void loadInstrumentSamples(ctx, type).then(() => {
+        const samples = getCachedSamples(ctx, type);
+        if (samples && stepPitch !== undefined) {
+          playSampledNote(ctx, samples, type, Math.round(stepPitch) + (effects.pitch || 0) + (effects.finePitch || 0), actualTime, duration, packVolume, masterGain);
+        }
+      }).catch(() => undefined);
+    }
+    return;
   }
 
   switch (type) {
@@ -524,6 +566,7 @@ export function makeSound(
       break;
     }
     case 'synth': {
+      const synthBase = stepPitch !== undefined ? midiToFreq(stepPitch) : 440;
       const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
       filter.frequency.setValueAtTime(3000 * finePitchMultiplier, actualTime);
@@ -537,10 +580,10 @@ export function makeSound(
 
       const osc1 = ctx.createOscillator();
       osc1.type = 'sawtooth';
-      osc1.frequency.setValueAtTime(440 * pitchMultiplier * finePitchMultiplier, actualTime);
+      osc1.frequency.setValueAtTime(synthBase * pitchMultiplier * finePitchMultiplier, actualTime);
       const osc2 = ctx.createOscillator();
       osc2.type = 'sawtooth';
-      osc2.frequency.setValueAtTime(442 * pitchMultiplier * finePitchMultiplier, actualTime);
+      osc2.frequency.setValueAtTime((synthBase + 2) * pitchMultiplier * finePitchMultiplier, actualTime);
       osc1.connect(filter);
       osc2.connect(filter);
 
@@ -557,7 +600,8 @@ export function makeSound(
       padGain.gain.exponentialRampToValueAtTime(0.01, actualTime + 1.0 * lengthMultiplier);
       connectToChain(padGain);
 
-      const freqs = [220, 220.5, 277].map((f) => f * pitchMultiplier);
+      const padBase = stepPitch !== undefined ? midiToFreq(stepPitch) : 220;
+      const freqs = [padBase, padBase * 1.0023, padBase * 1.2599].map((f) => f * pitchMultiplier);
       const types: OscillatorType[] = ['sine', 'triangle', 'sine'];
       freqs.map((f, i) => {
         const o = ctx.createOscillator();
@@ -625,7 +669,7 @@ export function makeSound(
       break;
     }
     case 'piano': {
-      const fundamental = 440 * pitchMultiplier;
+      const fundamental = (stepPitch !== undefined ? midiToFreq(stepPitch) : 440) * pitchMultiplier;
       const harmonics = [
         { freq: fundamental, gain: 0.6 },
         { freq: fundamental * 2, gain: 0.3 },
@@ -651,7 +695,7 @@ export function makeSound(
       break;
     }
     case 'violin': {
-      const fundamental = 440 * pitchMultiplier;
+      const fundamental = (stepPitch !== undefined ? midiToFreq(stepPitch) : 440) * pitchMultiplier;
       const vibratoLFO = ctx.createOscillator();
       vibratoLFO.frequency.value = 5;
       const vibratoGain = ctx.createGain();
@@ -689,7 +733,7 @@ export function makeSound(
       break;
     }
     case 'guitar': {
-      const fundamental = 220 * pitchMultiplier;
+      const fundamental = (stepPitch !== undefined ? midiToFreq(stepPitch) : 220) * pitchMultiplier;
       const gFilter = ctx.createBiquadFilter();
       gFilter.type = 'lowpass';
       gFilter.frequency.setValueAtTime(4000 * finePitchMultiplier, actualTime);
@@ -719,7 +763,7 @@ export function makeSound(
       break;
     }
     case 'flute': {
-      const fundamental = 660 * pitchMultiplier;
+      const fundamental = (stepPitch !== undefined ? midiToFreq(stepPitch) : 660) * pitchMultiplier;
       const fFilter = ctx.createBiquadFilter();
       fFilter.type = 'bandpass';
       fFilter.frequency.value = fundamental * 2;
@@ -756,7 +800,7 @@ export function makeSound(
       break;
     }
     case 'sax': {
-      const fundamental = 330 * pitchMultiplier;
+      const fundamental = (stepPitch !== undefined ? midiToFreq(stepPitch) : 330) * pitchMultiplier;
       const sFilter = ctx.createBiquadFilter();
       sFilter.type = 'bandpass';
       sFilter.frequency.value = 1200;
@@ -978,6 +1022,9 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
   const [pubDescription, setPubDescription] = useState('');
   const [pubDownloadAccess, setPubDownloadAccess] = useState<'premium' | 'paid' | 'nobody'>('premium');
 
+  // Sample-pack instruments: available once the user owns any sample pack
+  const [hasSamplePacks, setHasSamplePacks] = useState(false);
+
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const intervalRef = useRef<number | null>(null);
@@ -1043,7 +1090,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
       const swingOffset = step % 2 === 1 ? (swingRef.current * stepDuration * 0.25) / 1000 : 0;
       tracksRef.current.forEach((track) => {
         const audible = soloTrackRef.current ? track.id === soloTrackRef.current : !track.muted;
-        if (audible && track.steps[step]) {
+        if (audible && stepIsOn(track.steps[step])) {
           makeSound(ctx, analyserRef.current, track.type, actualTime + swingOffset, track.volume * masterVolRef.current, {
             reverb: track.reverb,
             delay: track.delay,
@@ -1059,7 +1106,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
             offset: track.offset || 0,
             length: track.length || 1.0,
             finePitch: track.finePitch || 0,
-          }, bpm, step);
+          }, bpm, step, stepMidi(track.steps[step]) ?? undefined);
         }
       });
       stepRef.current = (step + 1) % totalSteps;
@@ -1089,6 +1136,24 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
 
   // Piano keyboard input (only when page is active)
   const heldKeysRef = useRef<Set<string>>(new Set());
+  const tracksStateRef = useRef(tracks);
+  useEffect(() => { tracksStateRef.current = tracks; }, [tracks]);
+
+  // Write a note into the currently selected melodic track at the playhead position
+  const writeNoteToTrack = useCallback((midi: number) => {
+    const target = tracksStateRef.current.find((t) => t.id === selectedTrackId);
+    if (!target) return;
+    if (!MELODIC_TYPES.includes(target.type) && !isSampleInstrument(target.type)) return;
+    const stepIdx = scrubPositionRef.current >= 0 ? scrubPositionRef.current : 0;
+    setTracks((prev) =>
+      prev.map((t) =>
+        t.id === target.id
+          ? { ...t, steps: t.steps.map((s, i) => (i === stepIdx ? midi : s)) }
+          : t
+      )
+    );
+  }, [selectedTrackId]);
+
   useEffect(() => {
     if (!isActive) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1101,6 +1166,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
       const ctx = getCtx();
       if (ctx.state === 'suspended') ctx.resume();
       playMelodicNote(ctx, analyserRef.current, midi, masterVolRef.current * 0.5);
+      writeNoteToTrack(midi);
       setActivePitch(midi);
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -1121,6 +1187,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
     const ctx = getCtx();
     if (ctx.state === 'suspended') ctx.resume();
     playMelodicNote(ctx, analyserRef.current, midi, masterVolRef.current * 0.5);
+    writeNoteToTrack(midi);
     setActivePitch(midi);
     setTimeout(() => setActivePitch(null), 200);
   };
@@ -1129,7 +1196,7 @@ export default function BeatComposerPage({ isActive = true }: { isActive?: boole
     setTracks((prev) =>
       prev.map((t) =>
         t.id === trackId
-          ? { ...t, steps: t.steps.map((s, i) => (i === step ? !s : s)) }
+          ? { ...t, steps: t.steps.map((s, i) => (i === step ? (s ? false : 60) : s)) }
           : t
       )
     );
@@ -1152,6 +1219,17 @@ const addTrack = (presetType?: TrackType) => {
     setTracks([...tracks, createTrack(preset)]);
   }
 };
+
+  const addSampleTrack = (type: SampleInstrumentId) => {
+    const maxTracks = isPremium ? 60 : 15;
+    if (tracks.length >= maxTracks) {
+      alert(t(`Достигнут максимальный лимит в ${maxTracks} дорожек${isPremium ? ' (Premium)' : ''}`));
+      return;
+    }
+    const preset = SAMPLE_PRESETS.find((p) => p.type === type);
+    if (!preset || tracks.some((t) => t.type === type)) return;
+    setTracks([...tracks, createTrack(preset)]);
+  };
 
   const removeTrack = (id: string) => {
     setTracks(tracks.filter((t) => t.id !== id));
@@ -1444,6 +1522,15 @@ const addTrack = (presetType?: TrackType) => {
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
+
+  useEffect(() => {
+    if (!profile || isGuest) return;
+    supabase
+      .from('user_sample_packs')
+      .select('sample_pack_id')
+      .eq('user_id', profile.id)
+      .then(({ data }) => setHasSamplePacks(!!data && data.length > 0));
+  }, [profile, isGuest]);
 
   useEffect(() => {
     return () => stop();
@@ -2189,10 +2276,11 @@ const addTrack = (presetType?: TrackType) => {
             const categories: { label: string; types: TrackType[] }[] = [
               { label: t('Барабаны'), types: ['kick', 'snare', 'hihat', 'openhat', 'clap', 'tom', 'perc', 'drums'] },
               { label: t('Бас и Синты'), types: ['bass', 'synth', 'pad', 'crash', 'rim'] },
-              { label: t('Инструменты'), types: ['piano', 'lead', 'violin', 'guitar', 'rockguitar', 'flute', 'sax'] },
-              { label: t('Голоса'), types: ['vocmale', 'vocfemale', 'vocaltimati'] },
+              { label: t('Инструменты'), types: ['piano', 'lead', 'violin', 'guitar', 'flute', 'sax'] },
+              { label: t('Голоса'), types: ['vocaltimati'] },
             ];
             const search = trackSearch.toLowerCase();
+            const samplePresets = SAMPLE_PRESETS.filter((p) => !search || p.name.toLowerCase().includes(search));
             return categories.map((cat) => {
               const presets = cat.types
                 .map(t => TRACK_PRESETS.find(p => p.type === t))
@@ -2224,7 +2312,33 @@ const addTrack = (presetType?: TrackType) => {
                   </div>
                 </div>
               );
-            });
+            }).concat(
+              hasSamplePacks && samplePresets.length > 0 ? (
+                <div key="sample-packs">
+                  <p className="text-[11px] text-theme-muted uppercase tracking-widest mb-2 mt-4">{t('Сэмпл-паки')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {samplePresets.map((p) => {
+                      const used = tracks.some((t) => t.type === p.type);
+                      return (
+                        <button
+                          key={p.type}
+                          onClick={() => addSampleTrack(p.type)}
+                          disabled={used || tracks.length >= 15}
+                          className={`bg-theme-surface2 border border-theme-border rounded-lg px-3 py-1.5 text-[13px] flex items-center gap-1 transition-colors ${
+                            used
+                              ? 'text-theme-muted cursor-not-allowed opacity-50'
+                              : 'text-theme-muted hover:bg-theme-border hover:text-theme-text'
+                          }`}
+                        >
+                          <Plus className="w-3 h-3" />
+                          {t(p.name)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : []
+            );
           })()}
           <p className="text-[12px] text-theme-muted mt-4">
             {tracks.length}/{isPremium ? 60 : 15} {t('дорожек')}
