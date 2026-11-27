@@ -30,6 +30,7 @@ import TrendingPage from '@/pages/TrendingPage';
 import ChartsPage from '@/pages/ChartsPage';
 import MiniPlayer from '@/components/MiniPlayer';
 import ActivityTracker from '@/components/ActivityTracker';
+import StoriesPage from '@/components/StoriesPage';
 import { hit as metrikaHit, reachGoal } from '@/lib/metrika';
 
 import { ArrowRight, Check, Loader2, Sparkles, X } from 'lucide-react';
@@ -171,6 +172,7 @@ function AppContent() {
           {page === 'daily' && <DailyRewardsPage />}
           {page === 'payment-success' && <PaymentSuccessPage setPage={setPage} />}
           {page === 'shop' && <ShopPage />}
+          {page === 'stories' && <StoriesPage />}
           {page === 'reset-password' && <ResetPasswordPage setPage={setPage} onGoToSignIn={() => {
             supabase.auth.signOut();
             window.history.replaceState({}, '', '/');
