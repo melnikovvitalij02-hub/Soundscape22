@@ -1,6 +1,7 @@
 import type { PlayerTrack } from '@/context/PlayerContext';
 
-const ARTIST = 'Треки разработчиков Soundscape';
+const ARTIST_VITALIJ = 'Виталий Мельников';
+const ARTIST_TIMSAF = 'TimSaf';
 
 export const CHART_TRACKS: PlayerTrack[] = [
   { id: 'chart-error-404', title: 'Ошибка 404', artist: ARTIST, cover: '/charts/cover-1.webp', url: '/charts/track-1.mp3' },
