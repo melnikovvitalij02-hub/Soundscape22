@@ -30,7 +30,7 @@ const AVATAR_GRADIENTS = [
 
 const TABS: { id: TabId; label: string; icon: typeof Coins }[] = [
   { id: 'coins', label: 'Монеты', icon: Coins },
-  { id: 'samples', label: 'Сэмпл-паки', icon: Music },
+  //{ id: 'samples', label: 'Сэмпл-паки', icon: Music },
   { id: 'cosmetics', label: 'Внешний вид', icon: Palette },
   { id: 'boosts', label: 'Ускорения', icon: Zap },
   { id: 'avatars', label: 'Аватары', icon: Crown },
@@ -107,14 +107,15 @@ export default function ShopPage() {
   const loadTab = useCallback(async (tab: TabId) => {
     if (!profile || isGuest || tab === 'coins') return;
     setLoading(true);
-    if (tab === 'samples') {
-      const [i, o] = await Promise.all([
-        supabase.from('sample_packs').select('*').order('price_gems', { ascending: true }),
-        supabase.from('user_sample_packs').select('sample_pack_id').eq('user_id', profile.id),
-      ]);
-      if (i.data) setSamplePacks(i.data as SamplePack[]);
-      if (o.data) setOwnedSamplePacks((o.data as { sample_pack_id: string }[]).map((r) => r.sample_pack_id));
-    } else if (tab === 'cosmetics') {
+    //if (tab === 'samples') {
+      //const [i, o] = await Promise.all([
+        //supabase.from('sample_packs').select('*').order('price_gems', { ascending: true }),
+        //supabase.from('user_sample_packs').select('sample_pack_id').eq('user_id', profile.id),
+      //]);
+      //if (i.data) setSamplePacks(i.data as SamplePack[]);
+      //if (o.data) setOwnedSamplePacks((o.data as { sample_pack_id: string }[]).map((r) => r.sample_pack_id));
+    //}
+    if (tab === 'cosmetics') {
       const [i, o] = await Promise.all([
         supabase.from('cosmetic_items').select('*').order('price_gems', { ascending: true }),
         supabase.from('user_cosmetics').select('cosmetic_id,is_equipped').eq('user_id', profile.id),
