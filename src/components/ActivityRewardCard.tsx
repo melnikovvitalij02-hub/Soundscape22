@@ -12,16 +12,16 @@ import {
 import { Check, Clock, Flame, Gift, Loader2, Sparkles } from 'lucide-react';
 
 const TIERS = [
-  { minutes: 5, coins: 20 },
-  { minutes: 15, coins: 40 },
-  { minutes: 30, coins: 75 },
-  { minutes: 60, coins: 150 },
+  { minutes: 5, coins: 50 },
+  { minutes: 15, coins: 150 },
+  { minutes: 30, coins: 300 },
+  { minutes: 60, coins: 600 },
 ];
 
 const STREAK_BONUSES = [
-  { day: 3, coins: 30 },
-  { day: 7, coins: 150 },
-  { day: 14, coins: 400 },
+  { day: 3, coins: 50 },
+  { day: 7, coins: 250 },
+  { day: 14, coins: 500 },
   { day: 30, coins: 1000 },
 ];
 
