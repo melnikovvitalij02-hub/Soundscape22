@@ -47,9 +47,6 @@ type Beat = {
   is_public?: boolean;
   download_price?: number | null;
   is_free?: boolean;
-  description?: string | null;
-  download_access?: string | null;
-  comment_access?: string | null;
   data?: { tracks?: SavedTrack[]; bpm?: number; genre?: string; bars?: number } | null;
   creator?: {
     username: string;
@@ -94,6 +91,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
   const [hasMore, setHasMore] = useState(true);
   const [page, setPageNum] = useState(0);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const playingBeatRef = useRef<Beat | null>(null);
   const [likedBeats, setLikedBeats] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
@@ -176,6 +174,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       audioElRef.current.pause();
       audioElRef.current = null;
     }
+    playingBeatRef.current = null;
     setPlayingId(null);
     setAudioProgress(0);
     setAudioDuration(0);
@@ -190,6 +189,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       stopPlayback();
       return;
     }
+    playingBeatRef.current = beat;
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -212,6 +212,18 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       setAudioDuration(0);
       setPlayingId(beat.id);
       audio.play().catch(stopPlayback);
+      // монетизация: начисление и для аудиотреков через 30 секунд
+      if (profile && !isGuest) {
+        window.setTimeout(() => {
+          if (playingBeatRef.current?.id === beat.id) {
+            supabase.rpc('record_beat_listen_and_reward', {
+              p_beat_id: beat.id,
+              p_track_duration_sec: audio.duration || 0,
+              p_listened_sec: 30,
+            }).then(({ error }) => error && console.error('reward rpc', error));
+          }
+        }, 30000);
+      }
     } else {
       const ctx = getCtx();
       if (ctx.state === 'suspended') {
@@ -258,7 +270,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
         if (profile && !isGuest) {
           const trackTotalSec = totalSteps * (60 / effectiveBpm / 4);
           window.setTimeout(() => {
-            if (playingId === beat.id) {
+            if (playingBeatRef.current?.id === beat.id) {
               supabase.rpc('record_beat_listen_and_reward', {
                 p_beat_id: beat.id,
                 p_track_duration_sec: trackTotalSec,
@@ -644,8 +656,10 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       p_message: msg,
     });
 
-    if (error || !data?.ok) {
-      const reason = data?.reason;
+    // RPC RETURNS TABLE — клиент получает массив строк; берём первую.
+    const result = Array.isArray(data) ? data[0] : data;
+    if (error || !result?.ok) {
+      const reason = result?.reason;
       setStatus(t(
         reason === 'insufficient' ? 'Недостаточно средств'
         : reason === 'self' ? 'Нельзя поддержать свой бит'
@@ -661,7 +675,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     setSupportAmount(100);
     setSupportCurrency('coin');
     setSupportMsg((prev) => ({ ...prev, [beat.id]: '' }));
-    setStatus(t(`Отправлено ${amount} ${currency === 'gem' ? 'Gem' : 'монет'} · автор получит ${data.creator_received}`));
+    setStatus(t(`Отправлено ${amount} ${currency === 'gem' ? 'Gem' : 'монет'} · автор получит ${result.creator_received}`));
     setTimeout(() => setStatus(null), 3000);
   };
 
@@ -944,13 +958,6 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                                 <Download className="w-4 h-4" /> {t('Скачать')}
                               </button>
                               <button onClick={() => { setEditingBeat(beat); setEditForm({ description: beat.description || '', download_access: beat.download_access || 'premium', comment_access: beat.comment_access || 'all', price_gem: beat.price_gem || 100, price_coin: beat.price_coin || 1000, is_hot: beat.is_hot || false }); setMenuOpenBeatId(null); }} className="w-full px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface2 flex items-center gap-2"><Sliders className="w-4 h-4" /> {t('Настройки доступа')}</button>
-                              <div className="border-t border-theme-border my-1" />
-                              <button
-                                onClick={() => deleteBeat(beat)}
-                                className="w-full px-3 py-2 text-left text-sm text-theme-danger hover:bg-theme-danger/10 flex items-center gap-2"
-                              >
-                                <Trash2 className="w-4 h-4" /> {t('Удалить')}
-                              </button>
                             </div>
                           )}
                         </div>

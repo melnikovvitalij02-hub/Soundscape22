@@ -6,7 +6,6 @@ import {
   Package, Palette, Zap, Music, Download, Banknote, History, ArrowDownToLine,
 } from 'lucide-react';
 import CoinPurchase from '@/components/CoinPurchase';
-import GemPurchase from '@/components/GemPurchase';
 import { useLocale } from '@/context/LocaleContext';
 import PurchaseHistory from '@/components/PurchaseHistory';
 
@@ -254,7 +253,6 @@ export default function ShopPage() {
     if (activeTab === 'coins') return (
       <div className="space-y-6">
         <CoinPurchase />
-        <GemPurchase />
       </div>
     );
     if (activeTab === 'history') return <PurchaseHistory />;

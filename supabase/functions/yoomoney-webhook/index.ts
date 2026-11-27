@@ -22,11 +22,13 @@ function getShopPriceFromLabel(label: string): number | null {
   return Number.isFinite(price) && price > 0 ? price : null;
 }
 
-const COIN_PACKAGES: Record<string, { rub: number; coins: number }> = {
-  "coins_100": { rub: 30, coins: 100 },
-  "coins_300": { rub: 84, coins: 300 },
-  "coins_1000": { rub: 139, coins: 1000 },
-  "coins_2500": { rub: 299, coins: 2500 }
+const COIN_PACKAGES: Record<string, { rub: number; coins: number; premium?: boolean }> = {
+  "coins_300": { rub: 369, coins: 300 },
+  "coins_500": { rub: 559, coins: 500 },
+  "coins_2250": { rub: 2199, coins: 2250 },
+  "coins_2250_prem": { rub: 2299, coins: 2250, premium: true },
+  "coins_4500": { rub: 4199, coins: 4500 },
+  "coins_4500_prem": { rub: 4299, coins: 4500, premium: true }
 };
 
 // Gem packs (premium currency). The Gem balance IS donate_coins, so a gem
@@ -417,6 +419,17 @@ Deno.serve(async (req: Request) => {
           donate_coins: currentDonate + pkg.coins,
           total_donate_purchased: currentTotal + pkg.coins,
         }).eq("id", userId);
+
+        // Пакет «монеты + Premium»: монеты зачислены выше, здесь активируем премиум.
+        if (pkg.premium) {
+          const expiresAt = new Date(Date.now() + PREMIUM_DAYS * 24 * 60 * 60 * 1000).toISOString();
+          await supabase.from("profiles").update({ is_premium: true, premium_expires_at: expiresAt }).eq("id", userId);
+          await supabase.from("subscriptions").upsert({
+            user_id: userId, status: "active", plan: "premium", tier: "premium",
+            started_at: new Date().toISOString(), expires_at: expiresAt,
+          }, { onConflict: "user_id" });
+          console.log("Premium granted as part of coin bundle for user:", userId);
+        }
 
         await supabase.from("coin_purchases").update({
           status: "completed", completed_at: new Date().toISOString(), yoomoney_operation_id: operationId || null,
