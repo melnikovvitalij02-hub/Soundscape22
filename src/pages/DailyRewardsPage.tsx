@@ -6,13 +6,13 @@ import ActivityRewardCard from '@/components/ActivityRewardCard';
 import { Gift, Flame, Check, Calendar, Star, Loader2, Sparkles } from 'lucide-react';
 
 const DAILY_REWARDS = [
-  { day: 1, coins: 50, xp: 0 },
-  { day: 2, coins: 50, xp: 0 },
-  { day: 3, coins: 50, xp: 0 },
-  { day: 4, coins: 50, xp: 0 },
-  { day: 5, coins: 50, xp: 0 },
-  { day: 6, coins: 50, xp: 0 },
-  { day: 7, coins: 200, xp: 500 },
+  { day: 1, coins: 500, xp: 0 },
+  { day: 2, coins: 500, xp: 0 },
+  { day: 3, coins: 500, xp: 0 },
+  { day: 4, coins: 500, xp: 0 },
+  { day: 5, coins: 500, xp: 0 },
+  { day: 6, coins: 500, xp: 0 },
+  { day: 7, coins: 2000, xp: 500 },
 ];
 
 function getTodayStr(): string {
