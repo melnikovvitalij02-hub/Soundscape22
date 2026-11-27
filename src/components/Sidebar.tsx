@@ -96,7 +96,6 @@ const navGroups: { label: string; icon: typeof Rocket; items: { id: Page; label:
     icon: Crown,
     items: [
       { id: 'clans', label: 'Кланы', icon: Crown },
-      { id: 'stories', label: 'Сторис', icon: Crown },
     ],
   },
   {
