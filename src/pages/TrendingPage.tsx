@@ -16,7 +16,7 @@ const CLOCK_MS = 30_000;
 const MIN_LISTEN_SEC = 30;
 
 export default function TrendingPage() {
-  const { profile, isGuest } = useAuth();
+  const { profile, isGuest, addXp } = useAuth();
   const { t } = useLocale();
   const [beats, setBeats] = useState<TrendingBeat[]>([]);
   const [loading, setLoading] = useState(true);
