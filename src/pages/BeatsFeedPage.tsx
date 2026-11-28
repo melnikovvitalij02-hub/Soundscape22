@@ -689,47 +689,22 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages, onNavigat
 
     const msg = (supportMsg[beat.id] || '').trim();
 
-    // 1. Списываем баланс у поддержавшего
-    const balanceField = currency === 'gem' ? 'donate_coins' : 'coins';
-    const { error: deductError } = await supabase
-      .from('profiles')
-      .update({ [balanceField]: currentBalance - amount })
-      .eq('id', profile.id);
-
-    if (deductError) {
-      setStatus(t('Ошибка при списании средств'));
-      return;
-    }
-
-    // 2. Начисляем автору 90% (коэффициент 0.9)
-    const creatorReceived = Math.floor(amount * 0.9);
-    const creatorBalanceField = currency === 'gem' ? 'donate_coins' : 'coins';
-    const { data: creatorProfile } = await supabase
-      .from('profiles')
-      .select(creatorBalanceField)
-      .eq('id', beat.user_id)
-      .single();
-
-    if (creatorProfile) {
-      await supabase
-        .from('profiles')
-        .update({ [creatorBalanceField]: (creatorProfile[creatorBalanceField] || 0) + creatorReceived })
-        .eq('id', beat.user_id);
-    }
-
-    // 3. Записываем факт поддержки в таблицу
-    const { error: insertError } = await supabase.from('support_donations').insert({
-      supporter_id: profile.id,
-      creator_id: beat.user_id,
-      amount: amount,
-      currency: currency,
-      message: msg,
+  // Вызываем RPC-функцию для обработки доната
+    const { data, error } = await supabase.rpc('process_support_donation', {
+      p_beat_id: beat.id,
+      p_amount: amount,
+      p_currency: currency,
+      p_message: msg,
     });
 
-    if (insertError) {
-      console.error('support_donations insert error:', insertError);
-      // Даже если запись не удалась, деньги уже списаны/начислены
-      // Можно добавить компенсацию, но лучше просто залогировать
+    if (error || !data?.ok) {
+      const reason = data?.reason;
+      setStatus(
+        reason === 'insufficient' ? t('Недостаточно средств') :
+        reason === 'own_beat' ? t('Нельзя поддержать свой бит') :
+        t('Ошибка при поддержке')
+      );
+      return;
     }
 
     await refreshProfile();
@@ -737,7 +712,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages, onNavigat
     setSupportAmount(100);
     setSupportCurrency('coin');
     setSupportMsg((prev) => ({ ...prev, [beat.id]: '' }));
-    setStatus(t(`Поддержка ${amount} ${currency === 'gem' ? 'Gem' : 'монет'} отправлена! Автор получил ${creatorReceived}`));
+    setStatus(t(`Поддержка ${amount} ${currency === 'gem' ? 'Gem' : 'монет'} отправлена! Автор получил ${data.creator_received}`));
     setTimeout(() => setStatus(null), 3000);
   };
 
