@@ -942,7 +942,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages, onNavigat
                           </div>
                         )}
                         <button
-                          onClick={() => navigateToProfile(beat.user_id)}
+                          onClick={() => onNavigateToProfile?.(beat.user_id)}
                           className="text-xs text-theme-muted truncate hover:text-theme-primary bg-transparent border-none cursor-pointer"
                         >
                           {beat.creator?.username || t('Аноним')}
