@@ -63,6 +63,21 @@ export default function TrendingPage() {
   }, []);
 
   useEffect(() => {
+    if (!profile || isGuest || beats.length === 0) return;
+    const beatIds = beats.map((b) => b.beat_id);
+    (async () => {
+      const { data } = await supabase
+        .from('beat_likes')
+        .select('beat_id')
+        .eq('user_id', profile.id)
+        .in('beat_id', beatIds);
+      if (data) {
+        setLikedBeats(new Set(data.map((l) => l.beat_id)));
+      }
+    })();
+  }, [profile, isGuest, beats]);
+  
+  useEffect(() => {
     loadBeats();
     const refreshId = window.setInterval(loadBeats, REFRESH_MS);
     const clockId = window.setInterval(() => setNow(Date.now()), CLOCK_MS);
