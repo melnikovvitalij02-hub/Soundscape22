@@ -99,9 +99,18 @@ export default function TrendingRow({ beat, index, now, playing, isOwn, isLiked,
         <span className="hidden sm:inline">{t('рейтинг')}</span>
         <span className="flex items-center gap-2">
           <span>{beat.play_count} {t('прослуш.')}</span>
-          <span className="flex items-center gap-0.5">
-            <Heart className="w-3 h-3" /> {beat.likes_count}
-          </span>
+          <button
+            type="button"
+            onClick={() => onToggleLike(beat.beat_id)}
+            className={`flex items-center gap-0.5 px-2 py-1 rounded-lg transition-colors ${
+              isLiked
+              ? 'bg-theme-danger/15 text-theme-danger'
+              : 'bg-theme-surface2 text-theme-muted hover:text-theme-danger'
+            }`}
+          >
+            <Heart className="w-3 h-3" fill={isLiked ? 'currentColor' : 'none'} />
+            <span className="text-xs font-medium">{beat.likes_count}</span>
+          </button>
         </span>
       </div>
 
