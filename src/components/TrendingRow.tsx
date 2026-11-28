@@ -9,6 +9,7 @@ type Props = {
   playing: boolean;
   isOwn: boolean;
   onTogglePlay: (beat: TrendingBeat) => void;
+  onToggleLike: (beatId: string) => void;
   onBoost: (beatId: string) => void;
 };
 
@@ -21,7 +22,7 @@ function formatRemaining(until: string | null, now: number, t: (key: string) => 
   return hours > 0 ? `${hours} ${t('ч')} ${minutes} ${t('мин')}` : `${minutes} ${t('мин')}`;
 }
 
-export default function TrendingRow({ beat, index, now, playing, isOwn, onTogglePlay, onBoost }: Props) {
+export default function TrendingRow({ beat, index, now, playing, isOwn, isLiked, onTogglePlay, onToggleLike, onBoost }: Props) {
   const { t } = useLocale();
   const top3Left = formatRemaining(beat.top3_until, now, t);
   const boostLeft = formatRemaining(beat.boost_until, now, t);
