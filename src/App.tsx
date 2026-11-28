@@ -162,7 +162,7 @@ function AppContent() {
           {page === 'cords' && <AIStudioPage />}
           {page === 'games' && <GamesPage />}
           {page === 'profile' && <ProfilePage viewUserId={viewUserId} onNavigateToProfile={navigateToProfile} onNavigateToMessages={navigateToMessages} />}
-          {page === 'feed' && <BeatsFeedPage setPage={setPage} onNavigateToMessages={navigateToMessages} />}
+          {page === 'feed' && <BeatsFeedPage setPage={setPage} onNavigateToMessages={navigateToMessages} onNavigateToProfile={navigateToProfile} />}
           {page === 'clans' && <ClansPage />}
           {page === 'coach' && <AICoachPage onExit={() => setPage('home')} />}
           {page === 'subscription' && <SubscriptionPage />}
