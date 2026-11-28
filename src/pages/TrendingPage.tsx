@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useLocale } from '@/context/LocaleContext';
 import { makeSound, type TrackType } from '@/pages/BeatComposerPage';
 import { STEPS, buildPattern, trackEffects } from '@/lib/beatPlayback';
-import { fetchTrendingBeats, recordBeatPlay, type TrendingBeat } from '@/lib/trending';
+import { fetchTrendingBeats, recordBeatPlay, recordAnonPlay, type TrendingBeat } from '@/lib/trending';
 import TrendingBoostModal from '@/components/TrendingBoostModal';
 import TrackProgress from '@/components/TrackProgress';
 import TrendingRow from '@/components/TrendingRow';
@@ -12,6 +12,8 @@ import TrendingRow from '@/components/TrendingRow';
 
 const REFRESH_MS = 60_000;
 const CLOCK_MS = 30_000;
+// Minimum real listening time before a play counts (anti-autoclicker)
+const MIN_LISTEN_SEC = 30;
 
 export default function TrendingPage() {
   const { profile, isGuest } = useAuth();
@@ -28,6 +30,7 @@ export default function TrendingPage() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<number | null>(null);
+  const listenTimerRef = useRef<number | null>(null);
   const stepRef = useRef(0);
   const playingRef = useRef<TrendingBeat | null>(null);
   const loopOnRef = useRef(false);
@@ -83,6 +86,10 @@ export default function TrendingPage() {
     }
     stepRef.current = 0;
     playingRef.current = null;
+    if (listenTimerRef.current) {
+      window.clearTimeout(listenTimerRef.current);
+      listenTimerRef.current = null;
+    }
     setSeqPos(0);
     setSeqTotal(0);
     setAudioProgress(0);
@@ -90,17 +97,29 @@ export default function TrendingPage() {
     setPlayingId(null);
   }, []);
 
-  const countPlay = useCallback((beatId: string) => {
-    recordBeatPlay(beatId)
-      .then(() => {
-        setBeats((prev) =>
-          prev.map((item) =>
-            item.beat_id === beatId ? { ...item, play_count: item.play_count + 1 } : item
-          )
-        );
-      })
-      .catch(() => undefined);
-  }, []);
+  // Counts the play only after the beat really played for MIN_LISTEN_SEC.
+  const schedulePlayCount = useCallback((beatId: string) => {
+    if (!profile || isGuest) {
+      // guests/visitors: simple counter without rewards
+      listenTimerRef.current = window.setTimeout(() => {
+        recordAnonPlay(beatId).catch(() => undefined);
+      }, MIN_LISTEN_SEC * 1000);
+      return;
+    }
+    listenTimerRef.current = window.setTimeout(() => {
+      playingRef.current?.beat_id === beatId && recordBeatPlay(beatId, MIN_LISTEN_SEC)
+        .then((counted) => {
+          if (counted) {
+            setBeats((prev) =>
+              prev.map((item) =>
+                item.beat_id === beatId ? { ...item, play_count: item.play_count + 1 } : item
+              )
+            );
+          }
+        })
+        .catch(() => undefined);
+    }, MIN_LISTEN_SEC * 1000);
+  }, [profile, isGuest]);
 
   const togglePlay = useCallback(async (beat: TrendingBeat) => {
     if (playingId === beat.beat_id) {
@@ -129,7 +148,7 @@ export default function TrendingPage() {
       setAudioDuration(0);
       setPlayingId(beat.beat_id);
       audio.play().catch(stopPlayback);
-      countPlay(beat.beat_id);
+      schedulePlayCount(beat.beat_id);
       return;
     }
 
@@ -179,8 +198,8 @@ export default function TrendingPage() {
     setPlayingId(beat.beat_id);
     tick();
     intervalRef.current = window.setInterval(tick, 60000 / bpm / 4);
-    countPlay(beat.beat_id);
-  }, [playingId, stopPlayback, countPlay]);
+    schedulePlayCount(beat.beat_id);
+  }, [playingId, stopPlayback, schedulePlayCount]);
 
   const openBoost = (beatId: string | null) => {
     setBoostBeatId(beatId);

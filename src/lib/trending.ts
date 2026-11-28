@@ -62,7 +62,19 @@ export async function fetchTrendingBeats(limit = 50): Promise<TrendingBeat[]> {
   return rows.map((row) => ({ ...row, creator: creatorMap.get(row.creator_id) ?? null }));
 }
 
-export async function recordBeatPlay(beatId: string): Promise<void> {
-  const { error } = await supabase.rpc('increment_beat_play', { p_beat_id: beatId });
+// Verified play: counts only after a real 30s listen, once per listener
+// per beat per day (server enforces both, see count_verified_play).
+export async function recordBeatPlay(beatId: string, listenedSec: number): Promise<boolean> {
+  const { data, error } = await supabase.rpc('count_verified_play', {
+    p_beat_id: beatId,
+    p_listened_sec: Math.round(listenedSec),
+  });
+  if (error) throw error;
+  return data === true;
+}
+
+// Anonymous visitors still bump the public play counter (no rewards attached).
+export async function recordAnonPlay(beatId: string): Promise<void> {
+  const { error } = await supabase.rpc('count_anon_play', { p_beat_id: beatId });
   if (error) throw error;
 }
