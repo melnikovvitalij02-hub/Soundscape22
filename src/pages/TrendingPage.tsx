@@ -40,6 +40,8 @@ export default function TrendingPage() {
   const [seqPos, setSeqPos] = useState(0);
   const [seqTotal, setSeqTotal] = useState(0);
 
+  const [likedBeats, setLikedBeats] = useState<Set<string>>(new Set());
+
   const toggleLoop = useCallback(() => {
     setLoopOn((prev) => {
       const next = !prev;
