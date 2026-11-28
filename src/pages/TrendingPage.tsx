@@ -98,6 +98,7 @@ export default function TrendingPage() {
   }, []);
 
   // Counts the play only after the beat really played for MIN_LISTEN_SEC.
+  // + anti-farm: XP only once per day per beat (server-enforced).
   const schedulePlayCount = useCallback((beatId: string) => {
     if (!profile || isGuest) {
       // guests/visitors: simple counter without rewards
@@ -106,20 +107,31 @@ export default function TrendingPage() {
       }, MIN_LISTEN_SEC * 1000);
       return;
     }
-    listenTimerRef.current = window.setTimeout(() => {
-      playingRef.current?.beat_id === beatId && recordBeatPlay(beatId, MIN_LISTEN_SEC)
-        .then((counted) => {
-          if (counted) {
-            setBeats((prev) =>
-              prev.map((item) =>
-                item.beat_id === beatId ? { ...item, play_count: item.play_count + 1 } : item
-              )
-            );
-          }
-        })
-        .catch(() => undefined);
+    listenTimerRef.current = window.setTimeout(async () => {
+      if (playingRef.current?.beat_id !== beatId) return;
+
+      // 1. Уникальное прослушивание для рейтинга (30 дней)
+      try {
+        const { counted } = await recordBeatPlay(beatId);
+        if (counted) {
+          setBeats((prev) =>
+            prev.map((item) =>
+              item.beat_id === beatId ? { ...item, play_count: item.play_count + 1 } : item
+            )
+          );
+        }
+      } catch {}
+
+      // 2. XP за прослушивание — уникальность за день (server-enforced)
+      try {
+        const { data } = await supabase.rpc('claim_beat_xp', {
+          p_beat_id: beatId,
+          p_daily_unique: true,
+        });
+        if (data?.ok) addXp(2);
+      } catch {}
     }, MIN_LISTEN_SEC * 1000);
-  }, [profile, isGuest]);
+  }, [profile, isGuest, addXp]);
 
   const togglePlay = useCallback(async (beat: TrendingBeat) => {
     if (playingId === beat.beat_id) {
