@@ -341,7 +341,9 @@ export default function TrendingPage() {
               now={now}
               playing={playingId === beat.beat_id}
               isOwn={canBoost && profile?.id === beat.creator_id}
+              isLiked={likedBeats.has(beat.beat_id)}
               onTogglePlay={togglePlay}
+              onToggleLike={toggleLike}
               onBoost={openBoost}
             />
           ))}
