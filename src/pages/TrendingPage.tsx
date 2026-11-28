@@ -350,47 +350,55 @@ export default function TrendingPage() {
         </ol>
       )}
       {playingId && (
-        <div className="mt-4 rounded-2xl border border-theme-border bg-theme-surface p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <button
-              type="button"
-              onClick={stopPlayback}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-danger text-white"
-            >
-              <Flame className="w-3.5 h-3.5" /> Стоп
-            </button>
-          </div>
-          <TrackProgress
-            progress={
-              playingBeat?.audio_url
-                ? audioDuration > 0
-                  ? audioProgress / audioDuration
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-theme-surface/95 backdrop-blur-lg border-t border-theme-border p-4 shadow-2xl">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Flame className="w-4 h-4 text-theme-primary animate-pulse" />
+                <span className="text-sm font-medium text-theme-text truncate">
+                  {playingBeat?.title || t('Играет')}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={stopPlayback}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-theme-danger text-white hover:bg-theme-danger/80 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" /> {t('Стоп')}
+              </button>
+            </div>
+            <TrackProgress
+              progress={
+                playingBeat?.audio_url
+                  ? audioDuration > 0
+                    ? audioProgress / audioDuration
+                    : 0
+                  : seqTotal > 0
+                  ? seqPos / seqTotal
                   : 0
-                : seqTotal > 0
-                ? seqPos / seqTotal
-                : 0
-            }
-            onSeek={(ratio) => {
-              if (playingBeat?.audio_url) {
-                const audio = audioElRef.current;
-                if (audio && audioDuration > 0) {
-                  const newTime = ratio * audioDuration;
-                  audio.currentTime = newTime;
-                  setAudioProgress(newTime);
-                }
-              } else if (seqTotal > 0) {
-                stepRef.current = Math.round(ratio * seqTotal) % seqTotal;
-                setSeqPos(stepRef.current);
               }
-            }}
-            loop={loopOn}
-            onToggleLoop={toggleLoop}
-            timeLabel={
-              playingBeat?.audio_url
-                ? `${Math.floor(audioProgress / 60)}:${String(Math.floor(audioProgress % 60)).padStart(2, '0')} / ${Math.floor(audioDuration / 60)}:${String(Math.floor(audioDuration % 60)).padStart(2, '0')}`
-                : `${seqPos + 1}/${seqTotal}`
-            }
-          />
+              onSeek={(ratio) => {
+                if (playingBeat?.audio_url) {
+                  const audio = audioElRef.current;
+                  if (audio && audioDuration > 0) {
+                    const newTime = ratio * audioDuration;
+                    audio.currentTime = newTime;
+                    setAudioProgress(newTime);
+                  }
+                } else if (seqTotal > 0) {
+                  stepRef.current = Math.round(ratio * seqTotal) % seqTotal;
+                  setSeqPos(stepRef.current);
+                }
+              }}
+              loop={loopOn}
+              onToggleLoop={toggleLoop}
+              timeLabel={
+                playingBeat?.audio_url
+                  ? `${Math.floor(audioProgress / 60)}:${String(Math.floor(audioProgress % 60)).padStart(2, '0')} / ${Math.floor(audioDuration / 60)}:${String(Math.floor(audioDuration % 60)).padStart(2, '0')}`
+                  : `${seqPos + 1}/${seqTotal}`
+              }
+            />
+          </div>
         </div>
       )}
 
