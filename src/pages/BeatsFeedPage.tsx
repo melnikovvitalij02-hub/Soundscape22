@@ -536,20 +536,8 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       setLikeCounts((prev) => ({ ...prev, [beat.id]: (prev[beat.id] || 0) + 1 }));
 
       // XP за лайк — только один раз навсегда
-      // Проверяем через beat_xp_claims напрямую
-      const { data: existingClaim } = await supabase
-        .from('beat_xp_claims')
-        .select('id')
-        .eq('user_id', profile.id)
-        .eq('beat_id', beat.id)
-        .maybeSingle();
-
-      if (!existingClaim) {
-        // Записываем факт получения XP
-        await supabase.from('beat_xp_claims').insert({
-          user_id: profile.id,
-          beat_id: beat.id,
-        });
+      const { data } = await supabase.rpc('claim_like_xp', { p_beat_id: beat.id });
+      if (data?.ok) {
         addXp(1);
       }
     }
