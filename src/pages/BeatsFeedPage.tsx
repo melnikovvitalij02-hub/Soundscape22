@@ -83,7 +83,7 @@ type VoiceComment = {
 
 const PAGE_SIZE = 5;
 
-export default function BeatsFeedPage({ setPage, onNavigateToMessages, onNavigateToProfile }: { setPage: (p: Page) => void; onNavigateToMessages?: (userId: string) => void; onNavigateToProfile?: (userId: string) => void }) {
+export default function BeatsFeedPage({ setPage, onNavigateToMessages, onNavigateToProfile }: { setPage: (p: Page) => void; onNavigateToMessages?: (userId: string) => void; onNavigateToProfile?: (userId: string) => void; }) {
   const { profile, isGuest, addCoins, addXp, refreshProfile } = useAuth();
   const { t } = useLocale();
   const [beats, setBeats] = useState<Beat[]>([]);
