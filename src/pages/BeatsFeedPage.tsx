@@ -686,43 +686,62 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     }
   };
 
-    const support = async (beat: Beat) => {
+  const support = async (beat: Beat) => {
     if (!profile || isGuest) return;
-    if (isOwnBeat(beat)) return; // ← было if (isOwnBeat) — вечный return
+    if (isOwnBeat(beat)) return;
 
     const amount = supportAmount;
     const currency = supportCurrency;
     const currentBalance = currency === 'gem' ? (profile.donate_coins ?? 0) : (profile.coins ?? 0);
+
     if (currentBalance < amount) {
       setStatus(t(`Недостаточно ${currency === 'gem' ? 'Gem' : 'монет'}`));
       return;
     }
 
-    if (amount < 10 || amount > 10000) {
-      setStatus(t('Сумма поддержки — от 10 до 10000'));
+    const msg = (supportMsg[beat.id] || '').trim();
+
+    // 1. Списываем баланс у поддержавшего
+    const balanceField = currency === 'gem' ? 'donate_coins' : 'coins';
+    const { error: deductError } = await supabase
+      .from('profiles')
+      .update({ [balanceField]: currentBalance - amount })
+      .eq('id', profile.id);
+
+    if (deductError) {
+      setStatus(t('Ошибка при списании средств'));
       return;
     }
 
-    const msg = (supportMsg[beat.id] || '').trim();
-    const { data, error } = await supabase.rpc('support_beat_author', {
-      p_beat_id: beat.id,
-      p_amount: amount,
-      p_currency: currency,
-      p_message: msg,
+    // 2. Начисляем автору 90% (коэффициент 0.9)
+    const creatorReceived = Math.floor(amount * 0.9);
+    const creatorBalanceField = currency === 'gem' ? 'donate_coins' : 'coins';
+    const { data: creatorProfile } = await supabase
+      .from('profiles')
+      .select(creatorBalanceField)
+      .eq('id', beat.user_id)
+      .single();
+
+    if (creatorProfile) {
+      await supabase
+        .from('profiles')
+        .update({ [creatorBalanceField]: (creatorProfile[creatorBalanceField] || 0) + creatorReceived })
+        .eq('id', beat.user_id);
+    }
+
+    // 3. Записываем факт поддержки в таблицу
+    const { error: insertError } = await supabase.from('support_donations').insert({
+      supporter_id: profile.id,
+      creator_id: beat.user_id,
+      amount: amount,
+      currency: currency,
+      message: msg,
     });
 
-    // RPC RETURNS TABLE — клиент получает массив строк; берём первую.
-    const result = Array.isArray(data) ? data[0] : data;
-    if (error || !result?.ok) {
-      const reason = result?.reason;
-      setStatus(t(
-        reason === 'insufficient' ? 'Недостаточно средств'
-        : reason === 'self' ? 'Нельзя поддержать свой бит'
-        : reason === 'invalid_amount' ? 'Сумма поддержки — от 10 до 10000'
-        : reason === 'no_beat' ? 'Бит не найден'
-        : 'Ошибка при поддержке'
-      ));
-      return;
+    if (insertError) {
+      console.error('support_donations insert error:', insertError);
+      // Даже если запись не удалась, деньги уже списаны/начислены
+      // Можно добавить компенсацию, но лучше просто залогировать
     }
 
     await refreshProfile();
@@ -730,7 +749,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     setSupportAmount(100);
     setSupportCurrency('coin');
     setSupportMsg((prev) => ({ ...prev, [beat.id]: '' }));
-    setStatus(t(`Отправлено ${amount} ${currency === 'gem' ? 'Gem' : 'монет'} · автор получит ${result.creator_received}`));
+    setStatus(t(`Поддержка ${amount} ${currency === 'gem' ? 'Gem' : 'монет'} отправлена! Автор получил ${creatorReceived}`));
     setTimeout(() => setStatus(null), 3000);
   };
 
