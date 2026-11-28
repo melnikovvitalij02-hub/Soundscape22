@@ -290,12 +290,17 @@ CREATE INDEX IF NOT EXISTS idx_beat_likes_month
 ON beat_likes (beat_id, created_at)
 WHERE DATE_TRUNC('month', created_at)::date = DATE_TRUNC('month', NOW())::date;
 
-CREATE OR REPLACE FUNCTION get_unique_play_count(p_beat_id UUID)
-RETURNS INT
+-- Массовое получение уникальных счётчиков прослушиваний
+CREATE OR REPLACE FUNCTION get_unique_play_count_batch(p_beat_ids UUID[])
+RETURNS TABLE(beat_id UUID, unique_plays INT)
 LANGUAGE sql
 SECURITY DEFINER
+SET search_path = public
 AS $$
-  SELECT COUNT(DISTINCT listener_id)
-  FROM beat_listens
-  WHERE beat_id = p_beat_id;
+  SELECT bl.beat_id, COUNT(DISTINCT bl.listener_id)::INT as unique_plays
+  FROM beat_listens bl
+  WHERE bl.beat_id = ANY(p_beat_ids)
+  GROUP BY bl.beat_id;
 $$;
+
+GRANT EXECUTE ON FUNCTION get_unique_play_count_batch(UUID[]) TO authenticated;
