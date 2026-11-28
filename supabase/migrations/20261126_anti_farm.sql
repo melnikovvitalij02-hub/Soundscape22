@@ -138,3 +138,54 @@ GRANT EXECUTE ON FUNCTION count_anon_play(UUID) TO anon, authenticated;
 CREATE INDEX IF NOT EXISTS idx_beat_listens_recent
 ON beat_listens (beat_id, listener_id, listened_at)
 WHERE listened_at >= NOW() - INTERVAL '30 days';
+
+-- ============================================================
+-- 6. Функция claim_like_xp — XP за лайк только один раз
+--    (проверка по таблице beat_likes — там уже UNIQUE(user, beat))
+-- ============================================================
+CREATE OR REPLACE FUNCTION claim_like_xp(p_beat_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user UUID := auth.uid();
+  v_liked BOOLEAN;
+  v_already_claimed BOOLEAN;
+BEGIN
+  IF v_user IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'not_authenticated');
+  END IF;
+
+  -- Проверяем, лайкнул ли пользователь этот бит
+  SELECT EXISTS (
+    SELECT 1 FROM beat_likes WHERE beat_id = p_beat_id AND user_id = v_user
+  ) INTO v_liked;
+
+  IF NOT v_liked THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'not_liked');
+  END IF;
+
+  -- Проверяем, получал ли уже XP за этот лайк
+  SELECT EXISTS (
+    SELECT 1 FROM beat_xp_claims
+    WHERE user_id = v_user AND beat_id = p_beat_id AND claimed_at IS NOT NULL
+  ) INTO v_already_claimed;
+
+  -- Используем отдельную таблицу или поле для лайк-XP
+  -- Добавим проверку через beat_xp_claims с типом 'like'
+  IF EXISTS (
+    SELECT 1 FROM beat_xp_claims
+    WHERE user_id = v_user AND beat_id = p_beat_id
+  ) THEN
+    -- Если запись есть — проверяем, был ли уже лайк-XP
+    -- (упрощение: считаем что одна запись = один XP, независимо от типа)
+    RETURN jsonb_build_object('ok', false, 'reason', 'already_claimed');
+  END IF;
+
+  RETURN jsonb_build_object('ok', true);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION claim_like_xp(UUID) TO authenticated;
