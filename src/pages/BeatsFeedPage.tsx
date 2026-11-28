@@ -317,7 +317,12 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     supabase
       .from('beats')
       .update({ play_count: (beat.play_count || 0) + 1 })
-      .eq('id', beat.id);
+      .eq('id', beat.id)
+      .then(() => {
+        setBeats((prev) =>
+          prev.map((b) => (b.id === beat.id ? { ...b, play_count: (b.play_count || 0) + 1 } : b))
+        );
+      });
 
     // XP за прослушивание — уникальность навсегда (один бит = один раз)
     if (profile && !isGuest) {
