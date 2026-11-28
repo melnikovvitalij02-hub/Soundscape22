@@ -64,13 +64,11 @@ export async function fetchTrendingBeats(limit = 50): Promise<TrendingBeat[]> {
 
 // Verified play: counts only after a real 30s listen, once per listener
 // per beat per day (server enforces both, see count_verified_play).
-export async function recordBeatPlay(beatId: string, listenedSec: number): Promise<boolean> {
-  const { data, error } = await supabase.rpc('count_verified_play', {
-    p_beat_id: beatId,
-    p_listened_sec: Math.round(listenedSec),
-  });
+export async function recordBeatPlay(beatId: string): Promise<{ counted: boolean }> {
+  // Уникальность прослушивания за 30 дней для рейтинга
+  const { data, error } = await supabase.rpc('record_unique_play_30d', { p_beat_id: beatId });
   if (error) throw error;
-  return data === true;
+  return data ?? { counted: false };
 }
 
 // Anonymous visitors still bump the public play counter (no rewards attached).
