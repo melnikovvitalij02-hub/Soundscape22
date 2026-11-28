@@ -230,6 +230,41 @@ export default function TrendingPage() {
     schedulePlayCount(beat.beat_id);
   }, [playingId, stopPlayback, schedulePlayCount]);
 
+  const toggleLike = useCallback(async (beatId: string) => {
+    if (!profile || isGuest) return;
+    const isLiked = likedBeats.has(beatId);
+
+    if (isLiked) {
+      const { error } = await supabase.from('beat_likes').delete().eq('beat_id', beatId).eq('user_id', profile.id);
+      if (error) return;
+      setLikedBeats((prev) => {
+        const next = new Set(prev);
+        next.delete(beatId);
+        return next;
+      });
+      setBeats((prev) =>
+        prev.map((item) =>
+          item.beat_id === beatId ? { ...item, likes_count: Math.max(0, item.likes_count - 1) } : item
+        )
+      );
+    } else {
+      const { error } = await supabase.from('beat_likes').insert({ beat_id: beatId, user_id: profile.id });
+      if (error) return;
+      setLikedBeats((prev) => new Set(prev).add(beatId));
+      setBeats((prev) =>
+       prev.map((item) =>
+          item.beat_id === beatId ? { ...item, likes_count: item.likes_count + 1 } : item
+        )
+      );
+
+      // XP за лайк — только один раз навсегда
+      const { data } = await supabase.rpc('claim_like_xp', { p_beat_id: beatId });
+      if (data?.ok) {
+        addXp(1);
+      }
+    }
+  }, [profile, isGuest, likedBeats, addXp]);
+
   const openBoost = (beatId: string | null) => {
     setBoostBeatId(beatId);
     setBoostOpen(true);
