@@ -552,7 +552,7 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
         });
         addXp(1);
       }
-    };
+    });
 
   const toggleComments = async (beatId: string) => {
     if (expandedComments.has(beatId)) {
