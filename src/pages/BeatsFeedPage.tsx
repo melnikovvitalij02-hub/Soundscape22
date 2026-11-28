@@ -317,13 +317,18 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
     supabase
       .from('beats')
       .update({ play_count: (beat.play_count || 0) + 1 })
-      .eq('id', beat.id)
-      .then(() => {
-        setBeats((prev) =>
-          prev.map((b) => (b.id === beat.id ? { ...b, play_count: (b.play_count || 0) + 1 } : b))
-        );
+      .eq('id', beat.id);
+
+    // XP за прослушивание — уникальность навсегда (один бит = один раз)
+    if (profile && !isGuest) {
+      const { data } = await supabase.rpc('claim_beat_xp', {
+        p_beat_id: beat.id,
+        p_daily_unique: false,
       });
-    addXp(2);
+      if (data?.ok) {
+        addXp(2);
+      }
+    }
   }, [playingId, getCtx, stopPlayback, addXp]);
 
   useEffect(() => {
