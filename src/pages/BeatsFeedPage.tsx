@@ -372,26 +372,54 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       .eq('is_public', true)
       .order('created_at', { ascending: false })
       .range(from, to);
+
+    // Обработка ошибок ДО использования data
     if (error) {
       console.error('fetchBeats error', error);
       return [];
     }
 
-    const fetchedBeats = (data || []) as unknown as Beat[];
-    const userIds = [...new Set(fetchedBeats.map((beat) => beat.user_id))];
-    if (userIds.length === 0) return fetchedBeats;
+    const fetchedBeats = (data || []) as Beat[];
+    if (fetchedBeats.length === 0) return [];
+
+    // Получаем уникальные счётчики прослушиваний
+    const { data: uniqueCounts, error: ucError } = await supabase.rpc('get_unique_play_count_batch', {
+      p_beat_ids: fetchedBeats.map((b) => b.id),
+    });
+
+    if (ucError) {
+      console.error('get_unique_play_count_batch error', ucError);
+      // Если RPC упал — возвращаем биты со стандартным play_count
+    }
+
+    // Маппим уникальные счётчики в Map для быстрого доступа
+    const uniqueMap = new Map<string, number>();
+    (uniqueCounts ?? []).forEach((r: { beat_id: string; unique_plays: number }) => {
+      uniqueMap.set(r.beat_id, r.unique_plays);
+    });
+
+    // Заменяем play_count на уникальный счётчик
+    const beatsWithUniquePlays = fetchedBeats.map((beat) => ({
+      ...beat,
+      play_count: uniqueMap.get(beat.id) ?? 0,
+    }));
+
+    // Получаем авторов
+    const userIds = [...new Set(beatsWithUniquePlays.map((beat) => beat.user_id))];
+    if (userIds.length === 0) return beatsWithUniquePlays;
 
     const { data: creators, error: creatorsError } = await supabase
       .from('profiles')
       .select('id, username, avatar_url')
       .in('id', userIds);
+
     if (creatorsError) {
       console.error('fetch beat creators error', creatorsError);
-      return fetchedBeats;
+      return beatsWithUniquePlays;
     }
 
     const creatorMap = new Map((creators || []).map((creator) => [creator.id, creator]));
-    return fetchedBeats.map((beat) => ({ ...beat, creator: creatorMap.get(beat.user_id) }));
+    return beatsWithUniquePlays.map((beat) => ({ ...beat, creator: creatorMap.get(beat.user_id) }));
   }, []);
 
   const loadMore = useCallback(async () => {
