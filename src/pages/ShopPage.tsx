@@ -33,7 +33,7 @@ const TABS: { id: TabId; label: string; icon: typeof Coins }[] = [
   //{ id: 'samples', label: 'Сэмпл-паки', icon: Music },
   { id: 'cosmetics', label: 'Внешний вид', icon: Palette },
   { id: 'boosts', label: 'Ускорения', icon: Zap },
-  { id: 'avatars', label: 'Аватары', icon: Crown },
+  //{ id: 'avatars', label: 'Аватары', icon: Crown },
   { id: 'history', label: 'История', icon: History },
 ];
 
