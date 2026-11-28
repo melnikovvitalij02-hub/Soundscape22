@@ -506,7 +506,10 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
       if (error) return;
       setLikedBeats((prev) => new Set(prev).add(beat.id));
       setLikeCounts((prev) => ({ ...prev, [beat.id]: (prev[beat.id] || 0) + 1 }));
-      addXp(1);
+
+      // XP за лайк — только один раз навсегда
+      const { data } = await supabase.rpc('claim_like_xp', { p_beat_id: beat.id });
+      if (data?.ok) addXp(1);
     }
   };
 
