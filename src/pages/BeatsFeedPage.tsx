@@ -83,7 +83,7 @@ type VoiceComment = {
 
 const PAGE_SIZE = 5;
 
-export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPage: (p: Page) => void; onNavigateToMessages?: (userId: string) => void }) {
+export default function BeatsFeedPage({ setPage, onNavigateToMessages, onNavigateToProfil }: { setPage: (p: Page) => void; onNavigateToMessages?: (userId: string) => void; onNavigateToProfile?: (userId: string) => void }) {
   const { profile, isGuest, addCoins, addXp, refreshProfile } = useAuth();
   const { t } = useLocale();
   const [beats, setBeats] = useState<Beat[]>([]);
@@ -966,7 +966,12 @@ export default function BeatsFeedPage({ setPage, onNavigateToMessages }: { setPa
                             {beat.creator?.username?.[0]?.toUpperCase() || '?'}
                           </div>
                         )}
-                        <a href={`/profile/${beat.user_id}`} className="text-xs text-theme-muted truncate hover:text-theme-primary">{beat.creator?.username || t('Аноним')}</a>
+                        <button
+                          onClick={() => navigateToProfile(beat.user_id)}
+                          className="text-xs text-theme-muted truncate hover:text-theme-primary bg-transparent border-none cursor-pointer"
+                        >
+                          {beat.creator?.username || t('Аноним')}
+                        </button>
                         {beat.is_public === false && (
                           <span className="text-[10px] text-theme-warning flex items-center gap-0.5"><Lock className="w-3 h-3" /> {t('Приватный')}</span>
                         )}
