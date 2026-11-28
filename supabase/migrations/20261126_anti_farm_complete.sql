@@ -289,3 +289,13 @@ WHERE listened_at >= NOW() - INTERVAL '30 days';
 CREATE INDEX IF NOT EXISTS idx_beat_likes_month
 ON beat_likes (beat_id, created_at)
 WHERE DATE_TRUNC('month', created_at)::date = DATE_TRUNC('month', NOW())::date;
+
+CREATE OR REPLACE FUNCTION get_unique_play_count(p_beat_id UUID)
+RETURNS INT
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  SELECT COUNT(DISTINCT listener_id)
+  FROM beat_listens
+  WHERE beat_id = p_beat_id;
+$$;
